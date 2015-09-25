@@ -1,0 +1,16 @@
+Expect around 20M records in NBBO (so 20K per security)
+
+First millisecond: Just take the first active millisecond
+Last millisecond: EOD is 3:35:00.000pm (inclusive of endpoint)
+
+Bonus record should be ONLY unobserved to match with Justin's NBBO file.
+
+time_mroot = (e.g.) 9:30:03
+time_mtrail = (e.g) 176 (msec)
+
+SAS can easily grab the last record (e.g.) of time_mroot
+
+hang onto permno (unique id for security). Also sym root & suffix.
+
+
+BONUS - verify all group values are "3"
