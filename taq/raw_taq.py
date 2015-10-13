@@ -397,16 +397,19 @@ class TAQ2Chunks:
         finally:
             self.finalize_hdf5()
 
-if __name__ == '__main__':
+
+def main():
     from sys import argv
     import os
     from tables import *
 
+    # TODO: This class name was taken from the tutorial, which is about
+    # particle physics. Rename!
     class Particle(IsDescription):
         name = StringCol(30)   # 16-character String
         time = StringCol(8)
 
-    fnames = argv[1:]   #./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
+    fnames = argv[1:] #./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
     if not fnames:
         # Grab our agreed-upon "standard" BBO file
         fnames = ['../../local_data/EQY_US_ALL_BBO_20150202.zip']
@@ -426,13 +429,13 @@ if __name__ == '__main__':
         return diff
 
     log = open_file("log_201503.h5", mode = "w")
-    table = log.create_table('/', 'files', Particle)        
+    table = log.create_table('/', 'files', Particle)
     row = table.row
 
     for name in fnames:
         print('processing', name)
         h5_path = "../../local_data/%s.h5" %(name[17:40])
-        
+
         if not os.path.exists(h5_path):
             t0 = time.time()
             test = TAQ2Chunks(name, do_process_chunk=True)
@@ -442,3 +445,7 @@ if __name__ == '__main__':
             row['name'] = name[32:40]
             row['time'] = timing(t0, t1)
             row.append()
+
+
+if __name__ == '__main__':
+    main()
