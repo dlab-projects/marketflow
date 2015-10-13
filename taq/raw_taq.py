@@ -401,13 +401,13 @@ class TAQ2Chunks:
 def main():
     from sys import argv
     import os
-    from tables import *
+    import tables as tb
 
     # TODO: This class name was taken from the tutorial, which is about
     # particle physics. Rename!
-    class Particle(IsDescription):
-        name = StringCol(30)   # 16-character String
-        time = StringCol(8)
+    class Particle(tb.IsDescription):
+        name = tb.StringCol(30)   # 16-character String
+        time = tb.StringCol(8)
 
     fnames = argv[1:] #./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
     if not fnames:
@@ -428,7 +428,7 @@ def main():
 
         return diff
 
-    log = open_file("log_201503.h5", mode = "w")
+    log = tb.open_file("log_201503.h5", mode = "w")
     table = log.create_table('/', 'files', Particle)
     row = table.row
 

@@ -8,7 +8,7 @@ setup(
     author_email='davclark@berkeley.edu',
     license='BSD-2',
 
-    install_requires=['tables'],
+    install_requires=['tables', 'pytz'],
 
     extras_require={
         'test': ['pytest'],
