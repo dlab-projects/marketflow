@@ -55,3 +55,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# For now...
+test_data/
