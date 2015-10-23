@@ -1,8 +1,15 @@
 from os import listdir
+
+from pytest import mark
 import taq
 
+# This should probably be moved to an ini file
+DATA_FILES = ['EQY_US_ALL_BBO_20111101.zip',
+              'EQY_US_ALL_BBO_20140206.zip']
 
-def test_data_available():
+
+@mark.parametrize('fname', DATA_FILES)
+def test_data_available(fname):
     '''Test that our sample data is present
 
     Currently, data should be exactly the data also available on Box in the
@@ -10,6 +17,5 @@ def test_data_available():
     you're not a member of the D-Lab, you'll likely need to arrange your own
     access!
     '''
-    test_data_contents = listdir('test-data')
-    assert 'EQY_US_ALL_BBO_20111101.zip' in test_data_contents
-    assert 'EQY_US_ALL_BBO_20140206.zip' in test_data_contents
+    data_dir_contents = listdir('test-data')
+    assert fname in data_dir_contents
