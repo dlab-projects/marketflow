@@ -31,6 +31,11 @@ with gzip.GzipFile(sys.argv[1]) as infile:
             fmt = rec_types[rec[0]]
             # print(fmt)
             unpacked_rec = struct.unpack(fmt, rec)
+
+            # This unpacks that annoying 6-byte int timestamp that struct can't
+            # handle (maybe we should be using numpy?)
+            unpacked_rec = list(unpacked_rec)
+            unpacked_rec[4] = int.from_bytes(unpacked_rec[4], 'big')
             print(unpacked_rec)
         except KeyError:
             # Silently ignore unknown record types
