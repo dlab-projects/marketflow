@@ -29,6 +29,23 @@ class ITCHv5:
     std_prefix = '>c2h6p'
     rec_types = {ord('S'): std_prefix + 'c',              # System Event Message
                  ord('R'): std_prefix + '8s2ci2c2s5cic',  # Stock Directory Message
+                 ord('H'): std_prefix + '8s2c4s',         # Stock Trading Action Message
+                 ord('Y'): std_prefix + '8sc',            # Reg SHO Restriction
+                 ord('L'): std_prefix + '4s8s3c',         # Market Participation Position Message
+                 ord('V'): std_prefix + '3q',             # MWCB Decline Level Message
+                 ord('W'): std_prefix + 'c',              # MWCB Breach Message
+                 ord('K'): std_prefix + '8sicl',          # IPO Quoting Period Update
+                 ord('A'): std_prefix + 'qci8sl',         # Add Order Message
+                 ord('F'): std_prefix + 'qci8sl4s',       # Add Order (MPID) Message
+                 ord('E'): std_prefix + 'qlq',            # Order Executed Message
+                 ord('C'): std_prefix + 'qlqcl',          # Order Executed (with Price) Message
+                 ord('X'): std_prefix + 'ql',             # Order Cancel Message
+                 ord('D'): std_prefix + 'q',              # Order Delete Message
+                 ord('U'): std_prefix + '2q2l',           # Order Replace Message
+                 ord('P'): std_prefix + 'qcl8slq',        # Trade Message
+                 ord('Q'): std_prefix + 'q8slqc',         # Cross Trade Message
+                 ord('B'): std_prefix + 'q',              # Broken Trade Message
+                 ord('I'): std_prefix + '2qc8s3l2c'       # NOII Message
                  }
 
     def __init__(self, fname):
