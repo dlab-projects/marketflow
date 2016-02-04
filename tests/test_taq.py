@@ -1,5 +1,6 @@
 from os import listdir
 
+import pytest
 from pytest import mark
 import raw_taq as taq
 import configparser
@@ -11,15 +12,16 @@ config.read('./test_taq.ini')
 DATA_FILES = [y for x, y in config.items('taq-data')]
 
 
-# For sandbox purposes
-# sample = taq.TAQ2Chunks(sample_data_dir+'EQY_US_ALL_BBO_20140206.zip')
+# sample = taq.TAQ2Chunks(sample_data_dir+DATA_FILES[0])
 # chunk = next(sample.iter_)
-# print (chunk)
-# print (type(chunk))
-# print ("#######")
-# print (chunk[0])
-# print (chunk[999999])
+# print (len(chunk.dtype))
+# print(len(chunk[0]))
 
+# print (chunk.dtype)
+# print (chunk)
+# print (type(chunk.dtype.names))
+
+# print (type(chunk[0][4]))
 
 @mark.parametrize('fname', DATA_FILES)
 def test_data_available(fname):
@@ -36,12 +38,29 @@ def test_data_available(fname):
 def test_row_values(fname):
     sample = taq.TAQ2Chunks(sample_data_dir+fname)
     chunk = next(sample.iter_)
-    assert len(chunk) == 1000000
+    assert len(chunk) == sample.chunksize
+    first_row_vals = {}
+
+    for (x,y) in config.items('file1-row-values'):
+        first_row_vals[x] = y
+
+    print (first_row_vals)
+
+    field_mapping = {}
+    field_names = chunk.dtype.names
+    i = 0
+    for field in field_names:
+        field_lower = field.lower()
+        field_mapping[field_lower] = str(chunk[0][i])
+        i += 1
+        assert field_mapping[field_lower] == first_row_vals[field_lower]
+    print (field_mapping)
+
+
+
+    # assert sample.numlines = 
 
     # $chunk$ is a numpy.ndarray that we can index into
-    
-
-
 
 
 
@@ -49,4 +68,10 @@ def test_row_values(fname):
 def test_statistics(fname):
     # np.average()
     print('hi')
+
+
+if __name__ == '__main__':
+    pytest.main("test_taq.py")
+
+    # test_row_values(sample_data_dir+DATA_FILES[0])
 
