@@ -105,6 +105,13 @@ class ITCHv5:
             # 6-byte integer
             print(','.join(self.to_string(r) for r in rec))
 
+    def base_fname(self):
+        '''Get the file name, excluding any filepath chars,
+        file extensions, and version numbers
+        '''
+        return self.fname[self.fname.rfind('/')+1 : self.fname.find('-')]
+
+
 if __name__ == '__main__':
     from sys import argv, exit
     try:
