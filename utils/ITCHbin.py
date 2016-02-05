@@ -6,6 +6,7 @@ It assumes their squirrelly binary message format.'''
 
 import struct
 import gzip
+import csv
 
 
 class ITCHv5:
@@ -111,6 +112,16 @@ class ITCHv5:
         '''
         return self.fname[self.fname.rfind('/')+1 : self.fname.find('-')]
 
+    def to_fixed_width(self):
+        '''Output the records to a fixed-width text for each message type'''
+        base = self.base_fname()
+        for rec in self.records():
+            rec = [self.to_string(r) for r in rec]
+            msg_type = rec[0]
+            with open(base+'_'+rec[0]+'.txt', 'a') as outfile:
+                writer = csv.writer(outfile)
+                writer.writerow([' '.join(rec[3:])])
+
 
 if __name__ == '__main__':
     from sys import argv, exit
@@ -120,4 +131,5 @@ if __name__ == '__main__':
         print('Usage: ITCHbin.py <ITCH v5.0 file>')
         exit(1)
 
-    itch.print_records()
+    # itch.print_records()
+    itch.to_fixed_width()
