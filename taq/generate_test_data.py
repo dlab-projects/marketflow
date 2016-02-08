@@ -63,11 +63,11 @@ class Sanitizer(object):
             data = self.sanitize(data)
             writer.write(data)
 
-if __name__ == main():
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('file-in',  help="Path to Zipped TAQ data")
-    parser.add_argument('file-out', default='test_data_public.zip' ,help="Path to write output")
+    parser.add_argument('file_in', help="Path to Zipped TAQ data")
+    parser.add_argument('file_out', default='test_data_public.zip' ,help="Path to write output")
     parser.add_argument('size', type=int, help="Integer of 1000 row chunks to anonymize")
     args = parser.parse_args()
 
-    Sanitizer().run(file_in=args.file_in, file_out=args.file_out, size=args.size)
+    Sanitizer().run(fp_in=args.file_in, fp_out=args.file_out, size=args.size)
