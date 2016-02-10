@@ -4,11 +4,12 @@ import pytest
 from pytest import mark
 import raw_taq as taq
 import configparser
-import numpy as np
+from os import path
 
-sample_data_dir = '../test-data/'
+test_path = path.dirname(__file__)
+sample_data_dir = path.join(test_path, '../test-data/')
 config = configparser.ConfigParser()
-config.read('./test_taq.ini')
+config.read(path.join(test_path, 'test_taq.ini'))
 DATA_FILES = [y for x, y in config.items('taq-data')]
 
 
@@ -58,7 +59,7 @@ def test_row_values(fname):
 
 
 
-    # assert sample.numlines = 
+    # assert sample.numlines =
 
     # $chunk$ is a numpy.ndarray that we can index into
 
