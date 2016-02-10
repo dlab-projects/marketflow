@@ -2,7 +2,7 @@ from os import listdir
 
 import pytest
 from pytest import mark
-import raw_taq as taq
+import taq
 import configparser
 from os import path
 
