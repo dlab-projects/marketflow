@@ -8,6 +8,8 @@ setup(
     author_email='davclark@berkeley.edu',
     license='BSD-2',
 
+    packages=['taq'],
+
     install_requires=['tables', 'pytz'],
 
     extras_require={

@@ -283,7 +283,7 @@ class TAQ2Chunks:
                         for chunk in self.chunks(self.numlines, infile):
                             yield self.process_chunk(chunk)
                     else:
-                        yield self.chunks(self.numlines, infile)
+                        yield from self.chunks(self.numlines, infile)
 
     def process_chunk(self, all_bytes):
         '''Convert the structured ndarray `all_bytes` to the target_dtype
