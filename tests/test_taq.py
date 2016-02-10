@@ -39,6 +39,9 @@ def test_row_values(fname):
     sample = taq.TAQ2Chunks(sample_data_dir+fname)
     chunk = next(sample.iter_)
     assert len(chunk) == sample.chunksize
+
+    
+    
     first_row_vals = {}
 
     for (x,y) in config.items('file1-row-values'):
@@ -72,6 +75,4 @@ def test_statistics(fname):
 
 if __name__ == '__main__':
     pytest.main("test_taq.py")
-
-    # test_row_values(sample_data_dir+DATA_FILES[0])
 
