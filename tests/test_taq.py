@@ -2,7 +2,7 @@ from os import listdir
 
 import pytest
 from pytest import mark
-import raw_taq as taq
+import taq
 import configparser
 from os import path
 
@@ -12,37 +12,28 @@ config = configparser.ConfigParser()
 config.read(path.join(test_path, 'test_taq.ini'))
 DATA_FILES = [y for x, y in config.items('taq-data')]
 
-
-# sample = taq.TAQ2Chunks(sample_data_dir+DATA_FILES[0])
-# chunk = next(sample.iter_)
-# print (len(chunk.dtype))
-# print(len(chunk[0]))
-
-# print (chunk.dtype)
-# print (chunk)
-# print (type(chunk.dtype.names))
-
-# print (type(chunk[0][4]))
-
 # We can set up some processing this way
 # Docs here: http://pytest.org/latest/fixture.html
+
+@mark.xfail
 @pytest.fixture(scope='module')
-def h5_files():
+def h5_files(tmpdir):
     # XXX Update to be appropriate conversion to HDF5
     for i in range(len(DATA_FILES)):
-
         test_file = DATA_FILES[i]
         # Generate name for output file. Assumes filename of form
         # "EQY_US_ALL_BBO_YYYYMMDD.zip"
         out_name = test_file[15:23]
 
-        # type(sample) is raw_taq.TAQ2Chunks
         sample = taq.TAQ2Chunks(test_file)
 
         # XXX use temp files / directories to store data
         # http://pytest.org/latest/tmpdir.html
         print ("+++ Creating log file for [" + test_file +
                "] as ./test-logs/"+out_name+"_log.txt")
+
+
+
         with open("test-logs/"+out_name+"_log.txt", 'w') as log:
             for chunk in sample.iter_:
                 # chunk is a numpy array of tuples
@@ -94,23 +85,20 @@ def test_row_values(fname):
     chunk = next(sample.iter_)
     assert len(chunk) == sample.chunksize
 
-    
-    
+    # print(chunk[0][0])
+
     first_row_vals = {}
+    field_mapping_from_TAQchunk = {}
 
     for (x,y) in config.items('file1-row-values'):
         first_row_vals[x] = y
-
-    print (first_row_vals)
-
-    field_mapping = {}
     field_names = chunk.dtype.names
     i = 0
     for field in field_names:
         field_lower = field.lower()
-        field_mapping[field_lower] = str(chunk[0][i])
+        field_mapping_from_TAQchunk[field_lower] = str(chunk[0][i])
         i += 1
-        assert field_mapping[field_lower] == first_row_vals[field_lower]
+        assert field_mapping_from_TAQchunk[field_lower] == first_row_vals[field_lower]
     print (field_mapping)
 
 
@@ -135,3 +123,15 @@ def test_hdf5_rows_match_input(fname, h5_files):
 
 if __name__ == '__main__':
     pytest.main("test_taq.py")
+
+
+    sample = taq.TAQ2Chunks(sample_data_dir+"EQY_US_ALL_BBO_20140206.zip")
+    chunk = next(sample.iter_)
+    assert len(chunk) == sample.chunksize
+
+    print(chunk.shape)
+    print(chunk[0].shape)
+
+    print(chunk[0])
+
+
