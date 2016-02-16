@@ -201,6 +201,8 @@ class TAQ2Chunks:
             `chunks()` will set this to DEFAULT_CHUNKSIZE.
         do_process_chunk : bool
             Do type conversions?
+        chunk_type : read in by chunksize "lines" or by unbroken run of
+            stock "symbols"
         '''
         self.taq_fname = taq_fname
         self.chunksize = chunksize
@@ -210,12 +212,11 @@ class TAQ2Chunks:
 
         if chunk_type == 'lines':
             self.iter_ = self._convert_taq()
-            next(self.iter_)
+            next(self.iter_) #read first line and setup attributes
         elif chunk_type == 'symbols':
-            self.iter_ = self._symbol_taq()
-            self.subiter_ = self._convert_taq()
-            next(self.subiter_)
-        # Get first line read / set up remaining attributes
+            self.iter_ = self._symbol_taq() #make symbol_taq top level iter
+            self.subiter_ = self._convert_taq() #symbol_taq iterataes over convert_taq
+            next(self.subiter_) #read first line and setup attributes
 
 
     def __len__(self):
