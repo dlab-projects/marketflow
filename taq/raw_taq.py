@@ -176,7 +176,7 @@ class BytesSpec(object):
                 self.initial_dtype.append(('newline', 'S2'))
                 return
 
-        raise Error("Can't map fields onto bytes_per_line")
+        raise BaseException("Can't map fields onto bytes_per_line")
 
 
 class TAQ2Chunks:
