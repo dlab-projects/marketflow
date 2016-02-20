@@ -176,7 +176,7 @@ class BytesSpec(object):
                 self.initial_dtype.append(('newline', 'S2'))
                 return
 
-        raise Error("Can't map fields onto bytes_per_line")
+        raise BaseException("Can't map fields onto bytes_per_line")
 
 
 class TAQ2Chunks:
@@ -191,7 +191,7 @@ class TAQ2Chunks:
     # This is a totally random guess. It should probably be tuned if we care...
     DEFAULT_CHUNKSIZE = 1000000
 
-    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True):
+    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True, chunk_type='lines'):
         '''Configure conversion process and (for now) set up the iterator
         taq_fname : str
             Name of input file
@@ -201,14 +201,23 @@ class TAQ2Chunks:
             `chunks()` will set this to DEFAULT_CHUNKSIZE.
         do_process_chunk : bool
             Do type conversions?
+        chunk_type : read in by chunksize "lines" or by unbroken run of
+            stock "symbols"
         '''
         self.taq_fname = taq_fname
         self.chunksize = chunksize
+        self.chunk_buffer = None
+        self.symbol_list = []
         self.do_process_chunk = do_process_chunk
 
-        self.iter_ = self._convert_taq()
-        # Get first line read / set up remaining attributes
-        next(self.iter_)
+        if chunk_type == 'lines':
+            self.iter_ = self._convert_taq()
+            next(self.iter_) #read first line and setup attributes
+        elif chunk_type == 'symbols':
+            self.iter_ = self._symbol_taq() #make symbol_taq top level iter
+            self.subiter_ = self._convert_taq() #symbol_taq iterataes over convert_taq
+            next(self.subiter_) #read first line and setup attributes
+
 
     def __len__(self):
         return self.numlines
@@ -284,6 +293,40 @@ class TAQ2Chunks:
                             yield self.process_chunk(chunk)
                     else:
                         yield from self.chunks(self.numlines, infile)
+
+    def _partition_symbols(self):
+        """Parse line-based chunk into symbol-based chunk"""
+
+        unique_symbols, start_indices = np.unique(self.chunk_buffer[['Symbol_root', 'Symbol_suffix']], return_index=True)
+        for name, ix in zip(unique_symbols, start_indices):
+            self.symbol_list.append((name, ix))
+
+    def _symbol_taq(self):
+        """Return a generator that yield chunks by stock symbol"""
+
+        if not self.chunk_buffer:
+            self.chunk_buffer = next(self.subiter_)
+            self._partition_symbols()
+        while len(self.chunk_buffer) > 0:
+            while len(self.symbol_list) == 1:
+                try:
+                    np.append(self.chunk_buffer, next(self.subiter_))
+                    self._partition_symbols()
+                except StopIteration:
+                    break
+            current_symbol = self.symbol_list.pop(0)
+            try:
+                next_symbol = self.symbol_list[0]
+            except IndexError:
+                next_symbol = ('EOF', None)
+            current_chunk = self.chunk_buffer[
+                current_symbol[1]:next_symbol[1]
+                ]
+            self.chunk_buffer = np.delete(
+                self.chunk_buffer, [current_symbol[1],next_symbol[1]]
+                )
+            yield current_chunk
+
 
     def process_chunk(self, all_bytes):
         '''Convert the structured ndarray `all_bytes` to the target_dtype

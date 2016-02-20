@@ -4,7 +4,6 @@ import argparse
 import numpy as np
 import os
 from taq import raw_taq
-from zipfile import ZipFile
 
 class InFile(object):
 
@@ -20,15 +19,15 @@ class OutFile(object):
         self.f = fp
         if os.path.isfile(self.f):
             raise OSError("File already exists")
-        with ZipFile(self.f, 'w') as f:
-            f.writestr(self.f, b'')
+        with open(self.f, 'wb') as f:
+            f.write(b'')
 
     def write(self, data):
         bytes_data = b''
         for row in data:
             bytes_data += row.tostring() + b'\n'
-        with ZipFile(self.f, 'a') as f:
-            f.writestr(self.f, bytes_data)
+        with open(self.f, 'ab') as f:
+            f.write(bytes_data)
 
 class Sanitizer(object):
 
