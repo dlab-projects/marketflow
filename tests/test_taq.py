@@ -1,4 +1,5 @@
 import taq
+import arrow
 import pytest
 import numpy as np
 import configparser
@@ -6,6 +7,7 @@ from os import path
 from os import listdir
 from pytest import mark
 from zipfile import ZipFile
+from dateutil.tz import gettz
 
 
 test_path = path.dirname(__file__)
@@ -70,7 +72,7 @@ def test_row_values(fname, numlines=5):
 
                 # Read in raw bytes of lines 2-6 of file
                 raw_bytes = taqfile.read(line_length * numlines)
-                entries = [raw_bytes[i:i+line_length] for i in range(numlines)]
+                entries = [raw_bytes[i:i+line_length] for i in range(0,len(raw_bytes),line_length)]
                 
                 # Do a byte-field mapping using numpy
                 dt = [  ('Hour',                       'S2'),
@@ -104,15 +106,30 @@ def test_row_values(fname, numlines=5):
                 
                 structured_byte_mapping = np.array(entries, dtype=dt)
 
-                for i in range(numlines):
-                    print(chunk[i])
+                month, day, year = int(record_count[2:4]), int(record_count[4:6]), int(record_count[6:10])
 
+                for i in range(len(structured_byte_mapping)):
+                    entry = structured_byte_mapping[i]
+                    date_object = arrow.Arrow(year, month, day, 
+                        hour=int(entry['Hour']), 
+                        minute=int(entry['Minute']), 
+                        second=int(entry['Second']),
+                        microsecond=1000*int(entry['Milliseconds']), 
+                        tzinfo=gettz('America/New York'))
 
+                    # Float division only works in Python 3
+                    unix_time = date_object.timestamp + (int(entry['Milliseconds'])/1000)
 
+                    # All values in combined['Time'] of raw_taq in process_chunk are wrong!
+                    # Nevertheless, neither Arrow, Pytz, nor online unix converters match up...
+                    print (date_object)
+                    print('Arrow unix time: ' + str(unix_time))
+                    print('Pytz unix time:  ' + str(chunk[i][0]))
+                    print(' ')
 
-    # assert sample.numlines =
-
-    # $chunk$ is a numpy.ndarray that we can index into
+                    # Epoch to human-readable conversion
+                    print(arrow.get(date_object.timestamp))
+                    print(' ')
 
 
 
