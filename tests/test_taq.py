@@ -1,10 +1,12 @@
-from os import listdir
-
-import pytest
-from pytest import mark
 import taq
+import pytest
+import numpy as np
 import configparser
 from os import path
+from os import listdir
+from pytest import mark
+from zipfile import ZipFile
+
 
 test_path = path.dirname(__file__)
 sample_data_dir = path.join(test_path, '../test-data/')
@@ -24,37 +26,10 @@ def h5_files(tmpdir):
         # Generate name for output file. Assumes filename of form
         # "EQY_US_ALL_BBO_YYYYMMDD.zip"
         out_name = test_file[15:23]
-
         sample = taq.TAQ2Chunks(test_file)
 
         # XXX use temp files / directories to store data
         # http://pytest.org/latest/tmpdir.html
-        print ("+++ Creating log file for [" + test_file +
-               "] as ./test-logs/"+out_name+"_log.txt")
-
-
-
-        with open("test-logs/"+out_name+"_log.txt", 'w') as log:
-            for chunk in sample.iter_:
-                # chunk is a numpy array of tuples
-                # print (type(chunk[0]))
-
-                sorted_dtype = [(x,str(y[0])) for
-                                x,y in sorted(chunk.dtype.fields.items(),
-                                              key=lambda k: k[0])]
-
-                for attr, type in sorted_dtype:
-                    log.write(attr + "     ")
-
-                # for attr, type in chunk.dtype.fields.items():
-                #     print (attr)
-                #     print ("    ")
-
-                # print (chunk[0][0])
-                # print (chunk[0][1])
-
-                # placeholder write to log txt file
-                # log.write("data\n")
 
 
         # empty hdf5 table?
@@ -80,26 +55,58 @@ def test_data_available(fname):
 
 
 @mark.parametrize('fname', DATA_FILES)
-def test_row_values(fname):
+def test_row_values(fname, numlines=5):
     sample = taq.TAQ2Chunks(sample_data_dir+fname)
     chunk = next(sample.iter_)
     assert len(chunk) == sample.chunksize
 
-    # print(chunk[0][0])
+    with ZipFile(sample_data_dir+fname) as zfile:
+        for file in zfile.namelist():
+            with zfile.open(file) as taqfile:
 
-    first_row_vals = {}
-    field_mapping_from_TAQchunk = {}
+                # Call readline() once to read in the first row which has #lines
+                record_count = taqfile.readline()
+                line_length = len(record_count)
 
-    for (x,y) in config.items('file1-row-values'):
-        first_row_vals[x] = y
-    field_names = chunk.dtype.names
-    i = 0
-    for field in field_names:
-        field_lower = field.lower()
-        field_mapping_from_TAQchunk[field_lower] = str(chunk[0][i])
-        i += 1
-        assert field_mapping_from_TAQchunk[field_lower] == first_row_vals[field_lower]
-    print (field_mapping)
+                # Read in raw bytes of lines 2-6 of file
+                raw_bytes = taqfile.read(line_length * numlines)
+                entries = [raw_bytes[i:i+line_length] for i in range(numlines)]
+                
+                # Do a byte-field mapping using numpy
+                dt = [  ('Hour',                       'S2'),
+                        ('Minute',                     'S2'),
+                        ('Second',                     'S2'),
+                        ('Milliseconds',               'S3'),
+                        ('Exchange',                   'S1'),
+                        ('Symbol_Root',                'S6'),
+                        ('Symbol_Suffix',             'S10'),
+                        ('Bid_Price',                 'S11'),
+                        ('Bid_Size',                   'S7'),
+                        ('Ask_Price',                 'S11'),
+                        ('Ask_Size',                   'S7'),
+                        ('Quote_Condition',            'S1'),
+                        ('Market_Maker',               'S4'),
+                        ('Bid_Exchange',               'S1'),
+                        ('Ask_Exchange',               'S1'),
+                        ('Sequence_Number',           'S16'),
+                        ('National_BBO_Ind',           'S1'),
+                        ('NASDAQ_BBO_IND',             'S1'),
+                        ('Quote_Cancel_Correction',    'S1'),
+                        ('Source_of_Quote',            'S1'),
+                        ('Retail_Interest_Ind',        'S1'),
+                        ('Short_Sale_Restriction_Ind', 'S1'),
+                        ('LULD_BBO_Ind_CQS',           'S1'),
+                        ('LULD_BBO_Ind_UTP',           'S1'),
+                        ('FINRA_ADF_MPID_Ind',         'S1'),
+                        ('SIP_Generated_Message_ID',   'S1'),
+                        ('National_BBO_LULD_Ind',      'S1'),
+                        ('Line_Change',                'S2')  ]
+                
+                structured_byte_mapping = np.array(entries, dtype=dt)
+
+                for i in range(numlines):
+                    print(chunk[i])
+
 
 
 
@@ -122,16 +129,7 @@ def test_hdf5_rows_match_input(fname, h5_files):
 
 
 if __name__ == '__main__':
-    pytest.main("test_taq.py")
+    # pytest.main("test_taq.py")
 
-
-    sample = taq.TAQ2Chunks(sample_data_dir+"EQY_US_ALL_BBO_20140206.zip")
-    chunk = next(sample.iter_)
-    assert len(chunk) == sample.chunksize
-
-    print(chunk.shape)
-    print(chunk[0].shape)
-
-    print(chunk[0])
-
+    test_row_values('EQY_US_ALL_BBO_20140206.zip')
 
