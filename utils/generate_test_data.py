@@ -1,72 +1,125 @@
 #!/bin/env python
 
-import argparse
-import numpy as np
 import os
-from taq import raw_taq
+import random
+import string
 
 class InFile(object):
 
-    def __init__(self, fp: str):
-        self.generator = raw_taq.TAQ2Chunks(fp, do_process_chunk=True, chunksize=1000)
+    def __init__(self, fp: str, num_lines: int):
+        self.path = fp
+        self.limit = num_lines
+
+    def __enter__(self):
+        self.f = open(self.path, 'rb')
+        self.current_line = ''
+        self.next_index = 0
+        self.__next__()
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.f.close()
+
+    def __iter__(self):
+        return self
 
     def __next__(self):
-        return self.generator.__next__()
+        if self.next_index == self.limit:
+            raise StopIteration
+        else:
+            self.current_line = self.f.readline()
+            if not self.current_line:
+                raise StopIteration
+            self.next_index += 1
+            return self.current_line
 
 class OutFile(object):
 
     def __init__(self, fp: str):
-        self.f = fp
-        if os.path.isfile(self.f):
-            raise OSError("File already exists")
-        with open(self.f, 'wb') as f:
+        self.path = fp
+
+    def __enter__(self):
+        with open(self.path, 'wb') as f:
             f.write(b'')
+        self.f = open(self.path, 'ab')
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        self.f.close()
 
     def write(self, data):
-        bytes_data = b''
-        for row in data:
-            bytes_data += row.tostring() + b'\n'
-        with open(self.f, 'ab') as f:
-            f.write(bytes_data)
+        if not isinstance(data, bytes):
+            try:
+                data = data.encode('utf-8')
+            except UnicodeEncodeError:
+                try:
+                    data = data.encode('windows-1252')
+                except UnicodeEncodeError:
+                    raise
+        self.f.write(data)
 
 class Sanitizer(object):
 
     def __init__(self):
         self.fake_exchanges = [b'P', b'Y', b'K', b'T', b'M']
-        self.fake_symbol_roots = [b'CMUIQR',
-                            b'QNZJTK',
-                            b'DJCLZC',
-                            b'ENKZDV',
-                            b'NEWPHK']
-        self.fake_symbol_suffixes = [b'WZNAPJDEBJ'
-                                b'HURHRDTGZO'
-                                b'IZCJQKGBAG'
-                                b'YLZCHBOQWO'
-                                b'GVPTQGJZOP']
 
-    def sanitize(self, data):
-        for ix in range(0,len(data)):
-            data[ix][4] = self.fake_exchanges[np.random.randint(0,len(self.fake_exchanges))]
-            data[ix][5] = self.fake_symbol_roots[np.random.randint(0,len(self.fake_symbol_roots))]
-            data[ix][6] = self.fake_symbol_suffixes[np.random.randint(0,len(self.fake_symbol_suffixes))]
-        return data
+    def input_line(self, line):
+        if not isinstance(line, bytes):
+            raise TypeError("Expected bytes object, found {}".format(type(line)))
+        if len(line) not in [98,99]:
+            raise IndexError("""
+            Expected object of length 98 or 99, not {}
+            Did you strip out the leading whitespace?
+            """.format(len(line)))
+        self.line = line
 
+    def fudge_timestamp(self):
+        new_bytes = ''.join(random.sample(string.digits, 3)).encode('ascii')
+        self.replace_bytes(new_bytes, 7, 10)
 
-    def run(self, fp_in: str, fp_out: str, size: int):
-        self.remaining_chunks = size
-        generator = InFile(fp_in)
-        writer = OutFile(fp_out)
-        while self.remaining_chunks > 0:
-            self.remaining_chunks -= 1
-            data = next(generator)
-            data = self.sanitize(data)
-            writer.write(data)
+    def fudge_exchanges(self):
+        self.replace_bytes(random.choice(self.fake_exchanges), 10, 11)
+        self.replace_bytes(random.choice(self.fake_exchanges), 68, 69)
+        self.replace_bytes(random.choice(self.fake_exchanges), 69, 70)
+
+    def fudge_symbol(self):
+        if not self.line[11:17].isspace():
+            new_bytes = ''.join(random.sample(string.ascii_uppercase, 6)).encode('ascii')
+            self.replace_bytes(new_bytes, 11, 17)
+
+    def fudge_suffix(self):
+        if not self.line[17:27].isspace():
+            new_bytes = ''.join(random.sample(string.ascii_uppercase, 10)).encode('ascii')
+            self.replace_bytes(new_bytes, 17, 27)
+
+    def sanitize(self):
+        self.fudge_timestamp()
+        self.fudge_exchanges()
+        self.fudge_symbol()
+        self.fudge_suffix()
+        return self.line
+
+    def replace_bytes(self, new_bytes, start_ix, stop_ix):
+        if len(new_bytes) != stop_ix - start_ix:
+            raise IndexError("Replacement is not same length")
+        self.line = self.line[:start_ix] + new_bytes + self.line[stop_ix:]
+
+    def run(self, fp_in: str, fp_out: str, num_lines: int):
+        o = OutFile(fp_out)
+        with o:
+            i = InFile(fp_in, num_lines)
+            with i:
+                o.write(i.current_line)
+                for line in i:
+                    self.input_line(line)
+                    o.write(self.sanitize())
 
 if __name__ == '__main__':
+
+    import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('file_in', help="Path to Zipped TAQ data")
-    parser.add_argument('file_out', default='test_data_public.zip' ,help="Path to write output")
-    parser.add_argument('size', type=int, help="Integer of 1000 row chunks to anonymize")
+    parser.add_argument('file_out', default='test_data_public' ,help="Path to write output (not zipped)")
+    parser.add_argument('size', type=int, help="Integer of number of lines to sanitize and write")
     args = parser.parse_args()
 
-    Sanitizer().run(fp_in=args.file_in, fp_out=args.file_out, size=args.size)
+    Sanitizer().run(fp_in=args.file_in, fp_out=args.file_out, num_lines=args.size)
