@@ -9,6 +9,10 @@ from pytest import mark
 from zipfile import ZipFile
 from dateutil.tz import gettz
 
+# For comparison purposes
+from pytz import timezone
+import pytz
+
 
 test_path = path.dirname(__file__)
 sample_data_dir = path.join(test_path, '../test-data/')
@@ -117,19 +121,30 @@ def test_row_values(fname, numlines=5):
                         microsecond=1000*int(entry['Milliseconds']), 
                         tzinfo=gettz('America/New York'))
 
-                    # Float division only works in Python 3
                     unix_time = date_object.timestamp + (int(entry['Milliseconds'])/1000)
 
-                    # All values in combined['Time'] of raw_taq in process_chunk are wrong!
-                    # Nevertheless, neither Arrow, Pytz, nor online unix converters match up...
-                    print (date_object)
-                    print('Arrow unix time: ' + str(unix_time))
-                    print('Pytz unix time:  ' + str(chunk[i][0]))
-                    print(' ')
+                    # To confirm unix time results using online epoch converters, New York
+                    # is GMT-5, so take whatever HHMMSS value and add 5 to HH
 
-                    # Epoch to human-readable conversion
-                    print(arrow.get(date_object.timestamp))
-                    print(' ')
+                    # Seems like vectorized arithmetic operations on numpy arrays rounds the thousandths place
+                    # up to nearest hundredths place -- rounding error
+
+                    assert chunk[i][0] == unix_time
+
+                    # Should test other row values
+                    symbol_root, symbol_suffix = entry['Symbol_Root'], entry['Symbol_Suffix']
+
+                    bid_price, bid_size = entry['Bid_Price'], entry['Bid_Size']
+                    ask_price, ask_size = entry['Ask_Price'], entry['Ask_Size']
+                    assert len(bid_price) == 11
+                    assert len(bid_size) == 7
+                    assert len(ask_price) == 11
+                    assert len(ask_size) == 7
+
+                    # assert chunk[i][7] == bid_price
+                    # assert chunk[i][8] == bid_size
+                    # assert chunk[i][9] == ask_price
+                    # assert chunk[i][10] == ask_size
 
 
 
