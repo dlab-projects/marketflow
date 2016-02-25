@@ -191,7 +191,8 @@ class TAQ2Chunks:
     # This is a totally random guess. It should probably be tuned if we care...
     DEFAULT_CHUNKSIZE = 1000000
 
-    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True, chunk_type='lines'):
+    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True,
+                 chunk_type='lines', fast=True):
         '''Configure conversion process and (for now) set up the iterator
         taq_fname : str
             Name of input file
@@ -203,12 +204,15 @@ class TAQ2Chunks:
             Do type conversions?
         chunk_type : read in by chunksize "lines" or by unbroken run of
             stock "symbols"
+        fast : bool
+            temporary flag to select algorithm in .process_chunk()
         '''
         self.taq_fname = taq_fname
         self.chunksize = chunksize
         self.chunk_buffer = None
         self.symbol_list = []
         self.do_process_chunk = do_process_chunk
+        self.fast = fast
 
         if chunk_type == 'lines':
             self.iter_ = self._convert_taq()
@@ -339,13 +343,25 @@ class TAQ2Chunks:
         target_dtype = np.dtype(self.bytes_spec.target_dtype)
         combined = np.empty(all_bytes.shape, dtype=target_dtype)
 
-        # This should perform type coercion as well
-        for name in target_dtype.names:
-            if name == 'Time':
-                continue
-            combined[name] = all_bytes[name]
+        if self.fast:
+            for name in self.bytes_spec.passthrough_strings:
+                combined[name] = all_bytes[name]
+            for name, dtype in self.bytes_spec.convert_dtype:
+                curr = all_bytes[name]
+                a = np.fromstring(curr.copy(), np.uint8) - 48
+                combined[name] = a.reshape((-1, curr.itemsize)).dot(
+                    (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
+
+        else:
+            # This should perform type coercion as well
+            for name in target_dtype.names:
+                if name == 'Time':
+                    continue
+                combined[name] = all_bytes[name]
 
         # These don't have the decimal point in the TAQ file
+        # XXX could be folded into fast logic above (shift the arange),
+        # Currently adds ~4 msec per chunk
         for dollar_col in ['Bid_Price', 'Ask_Price']:
             combined[dollar_col] /= 10000
 
