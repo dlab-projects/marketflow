@@ -348,12 +348,14 @@ class TAQ2Chunks:
                 combined[name] = all_bytes[name]
             for name, dtype in self.bytes_spec.convert_dtype:
                 curr = all_bytes[name]
+                # .fromstring() converts bytes to integers, but needs
+                # C-contiguous data, hence a .copy()
                 a = np.fromstring(curr.copy(), np.uint8) - 48
                 combined[name] = a.reshape((-1, curr.itemsize)).dot(
                     (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
 
         else:
-            # This should perform type coercion as well
+            # This performs type coercion
             for name in target_dtype.names:
                 if name == 'Time':
                     continue
