@@ -30,7 +30,10 @@ class InFile(object):
             if not self.current_line:
                 raise StopIteration
             self.next_index += 1
-            return self.current_line
+            if len(self.current_line) == 99:
+                return self.current_line[1:]
+            else:
+                return self.current_line
 
 class OutFile(object):
 
@@ -64,31 +67,31 @@ class Sanitizer(object):
     def input_line(self, line):
         if not isinstance(line, bytes):
             raise TypeError("Expected bytes object, found {}".format(type(line)))
-        if len(line) not in [98,99]:
+        if len(line) not in [98]:
             raise IndexError("""
-            Expected object of length 98 or 99, not {}
+            Expected object of length 98, not {}
             Did you strip out the leading whitespace?
             """.format(len(line)))
         self.line = line
 
     def fudge_timestamp(self):
         new_bytes = ''.join(random.sample(string.digits, 3)).encode('ascii')
-        self.replace_bytes(new_bytes, 7, 10)
+        self.replace_bytes(new_bytes, 6, 9)
 
     def fudge_exchanges(self):
-        self.replace_bytes(random.choice(self.fake_exchanges), 10, 11)
+        self.replace_bytes(random.choice(self.fake_exchanges), 9, 10)
+        self.replace_bytes(random.choice(self.fake_exchanges), 67, 68)
         self.replace_bytes(random.choice(self.fake_exchanges), 68, 69)
-        self.replace_bytes(random.choice(self.fake_exchanges), 69, 70)
 
     def fudge_symbol(self):
-        if not self.line[11:17].isspace():
+        if not self.line[10:16].isspace():
             new_bytes = ''.join(random.sample(string.ascii_uppercase, 6)).encode('ascii')
-            self.replace_bytes(new_bytes, 11, 17)
+            self.replace_bytes(new_bytes, 10, 16)
 
     def fudge_suffix(self):
-        if not self.line[17:27].isspace():
+        if not self.line[16:26].isspace():
             new_bytes = ''.join(random.sample(string.ascii_uppercase, 10)).encode('ascii')
-            self.replace_bytes(new_bytes, 17, 27)
+            self.replace_bytes(new_bytes, 16, 26)
 
     def sanitize(self):
         self.fudge_timestamp()
