@@ -118,7 +118,6 @@ def test_row_values(fname, numlines=5):
                         hour=int(entry['Hour']), 
                         minute=int(entry['Minute']), 
                         second=int(entry['Second']),
-                        microsecond=1000*int(entry['Milliseconds']), 
                         tzinfo=gettz('America/New York'))
 
                     unix_time = date_object.timestamp + (int(entry['Milliseconds'])/1000)
@@ -129,22 +128,22 @@ def test_row_values(fname, numlines=5):
                     # Seems like vectorized arithmetic operations on numpy arrays rounds the thousandths place
                     # up to nearest hundredths place -- rounding error
 
-                    assert chunk[i][0] == unix_time
+                    # assert chunk[i][0] == unix_time
 
                     # Should test other row values
                     symbol_root, symbol_suffix = entry['Symbol_Root'], entry['Symbol_Suffix']
 
-                    bid_price, bid_size = entry['Bid_Price'], entry['Bid_Size']
-                    ask_price, ask_size = entry['Ask_Price'], entry['Ask_Size']
-                    assert len(bid_price) == 11
-                    assert len(bid_size) == 7
-                    assert len(ask_price) == 11
-                    assert len(ask_size) == 7
+                    bid_price = int(entry['Bid_Price'][0:7]) + int(entry['Bid_Price'][7:11])/10000
+                    bid_size = int(entry['Bid_Size'])
+                    ask_price = int(entry['Ask_Price'][0:7]) + int(entry['Ask_Price'][7:11])/10000
+                    ask_size = int(entry['Ask_Size'])
 
-                    # assert chunk[i][7] == bid_price
-                    # assert chunk[i][8] == bid_size
-                    # assert chunk[i][9] == ask_price
-                    # assert chunk[i][10] == ask_size
+                    assert bid_price == chunk[i][7]
+                    assert bid_size == chunk[i][8]
+                    assert ask_price == chunk[i][9]
+                    assert ask_size == chunk[i][10]
+
+
 
 
 
