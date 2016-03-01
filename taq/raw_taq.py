@@ -191,7 +191,8 @@ class TAQ2Chunks:
     # This is a totally random guess. It should probably be tuned if we care...
     DEFAULT_CHUNKSIZE = 1000000
 
-    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True, chunk_type='lines'):
+    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True,
+                 chunk_type='lines', fast=True):
         '''Configure conversion process and (for now) set up the iterator
         taq_fname : str
             Name of input file
@@ -203,12 +204,15 @@ class TAQ2Chunks:
             Do type conversions?
         chunk_type : read in by chunksize "lines" or by unbroken run of
             stock "symbols"
+        fast : bool
+            temporary flag to select algorithm in .process_chunk()
         '''
         self.taq_fname = taq_fname
         self.chunksize = chunksize
         self.chunk_buffer = None
         self.symbol_list = []
         self.do_process_chunk = do_process_chunk
+        self.fast = fast
 
         if chunk_type == 'lines':
             self.iter_ = self._convert_taq()
@@ -241,58 +245,58 @@ class TAQ2Chunks:
         # my_file.zip 2> /dev/null` if we use pandas.
 
         with ZipFile(self.taq_fname) as zfile:
-            for inside_f in zfile.filelist:
-                # The original filename is available as inside_f.filename
-                self.infile_name = inside_f.filename
+            # We unpack a single-item sequence with the comma
+            # XXX Should maybe add better exception handling here
+            self.infile_name, = zfile.namelist()
 
-                with zfile.open(inside_f.filename) as infile:
-                    first = infile.readline()
-                    bytes_per_line = len(first)
+            with zfile.open(self.infile_name) as infile:
+                first = infile.readline()
+                bytes_per_line = len(first)
 
-                    if self.do_process_chunk:
-                        self.bytes_spec = \
-                            BytesSpec(bytes_per_line,
-                                      computed_fields=[('Time', np.float64)])
-                                      # We want this for making the PyTables
-                                      # description:
-                                      # computed_fields=[('Time', 'datetime64[ms]')])
-                    else:
-                        self.bytes_spec = BytesSpec(bytes_per_line)
+                if self.do_process_chunk:
+                    self.bytes_spec = \
+                        BytesSpec(bytes_per_line,
+                                    computed_fields=[('Time', np.float64)])
+                                    # We want this for making the PyTables
+                                    # description:
+                                    # computed_fields=[('Time', 'datetime64[ms]')])
+                else:
+                    self.bytes_spec = BytesSpec(bytes_per_line)
 
-                    # You need to use bytes to split bytes
-                    # some files (probably older files do not have a record count)
-                    try:
-                        dateish, numlines = first.split(b":")
-                        self.numlines = int(numlines)
-                    except ValueError:
-                        dateish = first
+                # You need to use bytes to split bytes
+                # some files (probably older files do not have a record count)
+                try:
+                    dateish, numlines = first.split(b":")
+                    self.numlines = int(numlines)
+                except ValueError:
+                    dateish = first
 
-                    # Get dates to combine with times later
-                    # This is a little over-trusting of the spec...
-                    self.month = int(dateish[2:4])
-                    self.day = int(dateish[4:6])
-                    self.year = int(dateish[6:10])
+                # Get dates to combine with times later
+                # This is a little over-trusting of the spec...
+                self.month = int(dateish[2:4])
+                self.day = int(dateish[4:6])
+                self.year = int(dateish[6:10])
 
-                    # Nice idea from @rdhyee, we only need to compute the
-                    # 0-second for the day once per file.self
-                    naive_dt = datetime.datetime(self.year, self.month, self.day)
+                # Nice idea from @rdhyee, we only need to compute the
+                # 0-second for the day once per file.self
+                naive_dt = datetime.datetime(self.year, self.month, self.day)
 
-                    # It turns out you can't pass tzinfo directly, See
-                    # http://pythonhosted.org/pytz/
-                    # This lets us compute a UTC timestamp
-                    self.midnight_ts = timezone('US/Eastern').\
-                                        localize(naive_dt).\
-                                         timestamp()
+                # It turns out you can't pass tzinfo directly, See
+                # http://pythonhosted.org/pytz/
+                # This lets us compute a UTC timestamp
+                self.midnight_ts = timezone('US/Eastern').\
+                                    localize(naive_dt).\
+                                        timestamp()
 
-                    # This lets us parse the first line to initialize our
-                    # various attributes
-                    yield
+                # This lets us parse the first line to initialize our
+                # various attributes
+                yield
 
-                    if self.do_process_chunk:
-                        for chunk in self.chunks(self.numlines, infile):
-                            yield self.process_chunk(chunk)
-                    else:
-                        yield from self.chunks(self.numlines, infile)
+                if self.do_process_chunk:
+                    for chunk in self.chunks(self.numlines, infile):
+                        yield self.process_chunk(chunk)
+                else:
+                    yield from self.chunks(self.numlines, infile)
 
     def _partition_symbols(self):
         """Parse line-based chunk into symbol-based chunk"""
@@ -339,13 +343,29 @@ class TAQ2Chunks:
         target_dtype = np.dtype(self.bytes_spec.target_dtype)
         combined = np.empty(all_bytes.shape, dtype=target_dtype)
 
-        # This should perform type coercion as well
-        for name in target_dtype.names:
-            if name == 'Time':
-                continue
-            combined[name] = all_bytes[name]
+        if self.fast:
+            for name in self.bytes_spec.passthrough_strings:
+                combined[name] = all_bytes[name]
+            for name, dtype in self.bytes_spec.convert_dtype:
+                curr = all_bytes[name]
+                # .fromstring() converts bytes to integers, but needs
+                # C-contiguous data, hence a .copy()
+                # Also, 48 ==  ord(b'0'), subtracting yeilds integer
+                # equivalents
+                a = np.fromstring(curr.copy(), np.uint8) - 48
+                combined[name] = a.reshape((-1, curr.itemsize)).dot(
+                    (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
+
+        else:
+            # This performs type coercion
+            for name in target_dtype.names:
+                if name == 'Time':
+                    continue
+                combined[name] = all_bytes[name]
 
         # These don't have the decimal point in the TAQ file
+        # XXX could be folded into fast logic above (shift the arange),
+        # Currently adds ~4 msec per chunk
         for dollar_col in ['Bid_Price', 'Ask_Price']:
             combined[dollar_col] /= 10000
 
