@@ -462,53 +462,30 @@ class TAQ2Chunks:
 
 
 def main():
+    '''Basic conversion from zip file to HDF5, use like this:
+
+    $ ./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
+    '''
     from sys import argv
     import os
-    import tables as tb
 
-    # TODO: This class name was taken from the tutorial, which is about
-    # particle physics. Rename!
-    class Particle(tb.IsDescription):
-        name = tb.StringCol(30)   # 16-character String
-        time = tb.StringCol(8)
+    from .utility import timeit
 
-    fnames = argv[1:] #./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
+    fnames = argv[1:]
     if not fnames:
         # Grab our agreed-upon "standard" BBO file
-        fnames = ['../../local_data/EQY_US_ALL_BBO_20150202.zip']
-        # fname = '../local_data/EQY_US_ALL_BBO_20140206.zip'
+        fnames = ['test-data/small_test_data_public.zip']
 
-
-    def timing(t0, t1):
-        #convert the time note to string with regular formate
-        a = datetime.datetime.fromtimestamp(t0).strftime('%Y-%m-%d %H:%M:%S')
-        b = datetime.datetime.fromtimestamp(t1).strftime('%Y-%m-%d %H:%M:%S')
-
-        #time string calucation
-        start = datetime.datetime.strptime(a, '%Y-%m-%d %H:%M:%S')
-        end = datetime.datetime.strptime(b, '%Y-%m-%d %H:%M:%S')
-        diff = str(end - start)
-
-        return diff
-
-    log = tb.open_file("log_201503.h5", mode = "w")
-    table = log.create_table('/', 'files', Particle)
-    row = table.row
+    @timeit
+    def conv_to_hdf5(name):
+        test = TAQ2Chunks(name, do_process_chunk=True)
+        test.to_hdf5()
 
     for name in fnames:
         print('processing', name)
-        h5_path = "../../local_data/%s.h5" %(name[17:40])
+        h5_path = name.rstrip('.zip') + '.h5'
 
-        if not os.path.exists(h5_path):
-            t0 = time.time()
-            test = TAQ2Chunks(name, do_process_chunk=True)
-            test.to_hdf5()
-            t1 = time.time()
-
-            row['name'] = name[32:40]
-            row['time'] = timing(t0, t1)
-            row.append()
-
-
-if __name__ == '__main__':
-    main()
+        if os.path.exists(h5_path):
+            print('skipping, {} exists'.format(h5_path))
+        else:
+            conv_to_hdf5(name)
