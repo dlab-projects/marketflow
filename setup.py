@@ -18,7 +18,8 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'pytaq=raw_taq:main',
+            'pytaq=taq.raw_taq:main',
+            'pyitch=taq.ITCHbin:main',
         ],
     },
 )

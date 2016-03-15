@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 '''This script is based on the ITCH v5.0 spec.
 
 It assumes their squirrelly binary message format.'''
@@ -105,8 +103,9 @@ class ITCHv5:
             # 6-byte integer
             print(','.join(self.to_string(r) for r in rec))
 
-if __name__ == '__main__':
+def main():
     from sys import argv, exit
+
     try:
         itch = ITCHv5(argv[1])
     except IndexError:
