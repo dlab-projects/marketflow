@@ -1,13 +1,17 @@
-#!/usr/bin/env python3
+'''Basic, efficient interface to TAQ data using numpy
+
+A central design goal is minimizing external dependencies
+'''
 
 from os import path
 from zipfile import ZipFile
 
 from pytz import timezone
 import numpy as np
-from numpy.lib import recfunctions
+# Ends up being slow
+# from numpy.lib import recfunctions
 import tables as tb
-import time, datetime
+import datetime  # , time
 
 
 class BytesSpec(object):
@@ -16,11 +20,13 @@ class BytesSpec(object):
     # List of (Name, # of bytes_spectes)
     # We will use this to contstuct "bytes" (which is what 'S' stands for - it
     # doesn't stand for "string")
-    initial_dtype_info = [# Time is given in HHMMSSmmm, should be in Eastern Time (ET)
+    initial_dtype_info = [
+                          # Time is given in HHMMSSmmm, should be in Eastern
+                          # Time (ET)
                           ('hour', 2),
                           ('minute', 2),
-                          ('msec', 5), # This includes seconds - so up to
-                                       # 59,999 msecs
+                          ('msec', 5),  # This includes seconds - so up to
+                                        # 59,999 msecs
                           ('Exchange', 1),
                           ('Symbol_root', 6),
                           ('Symbol_suffix', 10),
@@ -141,7 +147,7 @@ class BytesSpec(object):
         for pos, name in enumerate(dtype.names):
             dt, _ = dtype.fields[name]
             if issubclass(dt.type, np.datetime64):
-                tdtype = tb.defscription({name: tb.Time64Col(pos = pos)}),
+                tdtype = tb.defscription({name: tb.Time64Col(pos=pos)}),
             else:
                 tdtype = tb.descr_from_dtype(np.dtype([(name, dt)]))
             el = tdtype[0]  # removed dependency on toolz -DJC
@@ -215,13 +221,14 @@ class TAQ2Chunks:
         self.fast = fast
 
         if chunk_type == 'lines':
-            self.iter_ = self._convert_taq()
-            next(self.iter_) #read first line and setup attributes
+            self.iterator = self._convert_taq()
+            next(self.iterator)  # read first line and setup attributes
         elif chunk_type == 'symbols':
-            self.iter_ = self._symbol_taq() #make symbol_taq top level iter
-            self.subiter_ = self._convert_taq() #symbol_taq iterataes over convert_taq
-            next(self.subiter_) #read first line and setup attributes
-
+            self.iterator = self._symbol_taq()  # make top level iter
+            self.subiter = self._convert_taq()  # symbol_taq iterataes over convert_taq
+            next(self.subiter)  # read first line and setup attributes
+        else:
+            raise ValueError("chunk_type must be 'lines' or 'symbols'")
 
     def __len__(self):
         return self.numlines
@@ -229,16 +236,16 @@ class TAQ2Chunks:
     def __iter__(self):
         # Returning the internal iterator avoids a function call, not a big
         # deal, but may as well avoid extra computation
-        return self.iter_
+        return self.iterator
 
     def __next__(self):
-        return next(self.iter_)
+        return next(self.iterator)
 
     def _convert_taq(self):
         '''Return a generator that yields chunks, based on config in object
 
         This is meant to be called from within `__init__()`, and stored in
-        `self.iter_`
+        `self.iterator`
         '''
         # The below doesn't work for pandas (and neither does `unzip` from the
         # command line). Probably want to use something like `7z x -so
@@ -301,7 +308,9 @@ class TAQ2Chunks:
     def _partition_symbols(self):
         """Parse line-based chunk into symbol-based chunk"""
 
-        unique_symbols, start_indices = np.unique(self.chunk_buffer[['Symbol_root', 'Symbol_suffix']], return_index=True)
+        unique_symbols, start_indices = np.unique(
+            self.chunk_buffer[['Symbol_root', 'Symbol_suffix']],
+            return_index=True)
         for name, ix in zip(unique_symbols, start_indices):
             self.symbol_list.append((name, ix))
 
@@ -309,12 +318,12 @@ class TAQ2Chunks:
         """Return a generator that yield chunks by stock symbol"""
 
         if not self.chunk_buffer:
-            self.chunk_buffer = next(self.subiter_)
+            self.chunk_buffer = next(self.subiter)
             self._partition_symbols()
         while len(self.chunk_buffer) > 0:
             while len(self.symbol_list) == 1:
                 try:
-                    np.append(self.chunk_buffer, next(self.subiter_))
+                    np.append(self.chunk_buffer, next(self.subiter))
                     self._partition_symbols()
                 except StopIteration:
                     break
@@ -453,10 +462,8 @@ class TAQ2Chunks:
             self.chunksize = h5_table.chunkshape[0]
 
         try:
-            for chunk in self.iter_:
+            for chunk in self.iterator:
                 h5_table.append(chunk)
-                # XXX for testing, we are only converting one chunk
-                #break
         finally:
             self.finalize_hdf5()
 

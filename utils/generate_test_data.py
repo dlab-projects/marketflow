@@ -30,6 +30,7 @@ class InFile(object):
             if not self.current_line:
                 raise StopIteration
             self.next_index += 1
+            # XXX When does this ever happen?
             if len(self.current_line) == 99:
                 return self.current_line[1:]
             else:
@@ -61,12 +62,13 @@ class OutFile(object):
 
 class Sanitizer(object):
 
-    def __init__(self):
-        self.fake_exchanges = [b'P', b'Y', b'K', b'T', b'M']
+    fake_exchanges = [b'P', b'Y', b'K', b'T', b'M']
+    curr_symbol = None
 
     def input_line(self, line):
         if not isinstance(line, bytes):
             raise TypeError("Expected bytes object, found {}".format(type(line)))
+        # XXX Should add other possible number of bytes
         if len(line) not in [98]:
             raise IndexError("""
             Expected object of length 98, not {}
@@ -121,8 +123,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('file_in', help="Path to Zipped TAQ data")
-    parser.add_argument('file_out', default='test_data_public' ,help="Path to write output (not zipped)")
-    parser.add_argument('size', type=int, help="Integer of number of lines to sanitize and write")
+    parser.add_argument('file_out', default='test_data_public',
+                        help="Path to write output (not zipped)")
+    parser.add_argument('size', type=int,
+                        help="Integer number of lines to sanitize and write")
     args = parser.parse_args()
 
-    Sanitizer().run(fp_in=args.file_in, fp_out=args.file_out, num_lines=args.size)
+    Sanitizer().run(fp_in=args.file_in, fp_out=args.file_out,
+                    num_lines=args.size)
