@@ -8,8 +8,7 @@ from zipfile import ZipFile
 
 from pytz import timezone
 import numpy as np
-# Ends up being slow
-# from numpy.lib import recfunctions
+# XXX move this to a separate function to eliminate a hard dependency
 import tables as tb
 import datetime  # , time
 
@@ -346,31 +345,20 @@ class TAQ2Chunks:
 
         If you did not specify do_process_chunk, you might run this yourself on
         chunks that you get from iteration.'''
-        # Note, this is slower than the code directly below
-        # records = recfunctions.append_fields(easy_converted, 'Time',
-        #                                      time64ish, usemask=False)
         target_dtype = np.dtype(self.bytes_spec.target_dtype)
         combined = np.empty(all_bytes.shape, dtype=target_dtype)
 
-        if self.fast:
-            for name in self.bytes_spec.passthrough_strings:
-                combined[name] = all_bytes[name]
-            for name, dtype in self.bytes_spec.convert_dtype:
-                curr = all_bytes[name]
-                # .fromstring() converts bytes to integers, but needs
-                # C-contiguous data, hence a .copy()
-                # Also, 48 ==  ord(b'0'), subtracting yeilds integer
-                # equivalents
-                a = np.fromstring(curr.copy(), np.uint8) - 48
-                combined[name] = a.reshape((-1, curr.itemsize)).dot(
-                    (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
-
-        else:
-            # This performs type coercion
-            for name in target_dtype.names:
-                if name == 'Time':
-                    continue
-                combined[name] = all_bytes[name]
+        for name in self.bytes_spec.passthrough_strings:
+            combined[name] = all_bytes[name]
+        for name, dtype in self.bytes_spec.convert_dtype:
+            curr = all_bytes[name]
+            # .fromstring() converts bytes to integers, but needs
+            # C-contiguous data, hence a .copy()
+            # Also, 48 ==  ord(b'0'), subtracting yeilds integer
+            # equivalents
+            a = np.fromstring(curr.copy(), np.uint8) - 48
+            combined[name] = a.reshape((-1, curr.itemsize)).dot(
+                (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
 
         # These don't have the decimal point in the TAQ file
         # XXX could be folded into fast logic above (shift the arange),
@@ -379,12 +367,15 @@ class TAQ2Chunks:
             combined[dollar_col] /= 10000
 
         # Currently, there doesn't seem to be any value in converting to
-        # numpy.datetime64, as PyTables wants float64's corresponding to the POSIX
-        # Standard (relative to 1970-01-01, UTC) that it then converts to a
-        # time64 struct on it's own
+        # numpy.datetime64, as PyTables wants float64's corresponding to the
+        # POSIX Standard (relative to 1970-01-01, UTC) that it then converts to
+        # a time64 struct on it's own
 
-        # TODO This is the right math, but we still need to ensure we're
-        # coercing to sufficient data types (we need to make some tests!).
+        # TODO I THINK this is the right math, but we still need to ensure
+        # we're coercing to sufficient data types (we need to make some
+        # tests!). Raymond Yang has some code that shows some values are wrong.
+        # Dav has replicated in Pandas (see ipynb notebook in the dlab-finance
+        # repo).
 
         # The math is also probably a bit inefficient, but it seems to work,
         # and based on Dav's testing, this is taking negligible time compared
@@ -407,15 +398,17 @@ class TAQ2Chunks:
             self.chunksize = self.DEFAULT_CHUNKSIZE
 
         while(True):
-            raw_bytes = infile.read(self.bytes_spec.bytes_per_line * self.chunksize)
+            raw_bytes = infile.read(self.bytes_spec.bytes_per_line *
+                                    self.chunksize)
             if not raw_bytes:
                 break
 
             # This is a fix that @rdhyee made, but due to non-DRY appraoch, he
             # did not propagate his fix!
-            all_bytes = np.ndarray(len(raw_bytes) // self.bytes_spec.bytes_per_line,
-                                        buffer=raw_bytes,
-                                        dtype=self.bytes_spec.initial_dtype)
+            all_bytes = np.ndarray(len(raw_bytes) //
+                                    self.bytes_spec.bytes_per_line,
+                                   buffer=raw_bytes,
+                                   dtype=self.bytes_spec.initial_dtype)
 
             yield all_bytes
 
@@ -441,7 +434,7 @@ class TAQ2Chunks:
                                mode='w',
                                filters=tb.Filters(complevel=8,
                                                   complib='blosc:lz4hc',
-                                                  fletcher32=True) )
+                                                  fletcher32=True))
 
         return self.h5.create_table('/', 'daily_quotes',
                                     description=self.bytes_spec.pytables_desc,
