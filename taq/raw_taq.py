@@ -192,6 +192,8 @@ class TAQ2Chunks:
     year = None
     month = None
     day = None
+    # This isn't available in our chunks, so we'll expose it here
+    first_line = None
 
     # This is a totally random guess. It should probably be tuned if we care...
     DEFAULT_CHUNKSIZE = 1000000
@@ -256,8 +258,9 @@ class TAQ2Chunks:
             self.infile_name, = zfile.namelist()
 
             with zfile.open(self.infile_name) as infile:
-                first = infile.readline()
-                bytes_per_line = len(first)
+                # this is part of the public interface
+                self.first_line = infile.readline()
+                bytes_per_line = len(self.first_line)
 
                 if self.do_process_chunk:
                     self.bytes_spec = \
@@ -272,10 +275,10 @@ class TAQ2Chunks:
                 # You need to use bytes to split bytes
                 # some files (probably older files do not have a record count)
                 try:
-                    dateish, numlines = first.split(b":")
+                    dateish, numlines = self.first_line.split(b":")
                     self.numlines = int(numlines)
                 except ValueError:
-                    dateish = first
+                    dateish = self.first_line
 
                 # Get dates to combine with times later
                 # This is a little over-trusting of the spec...
