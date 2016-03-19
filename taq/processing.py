@@ -19,8 +19,13 @@ def split_chunks(iterator_in, columns):
             np.unique(chunk[columns], return_index=True)
         # This takes up a trivial amount of memory, due to the use of views
         # And of course we don't want to split on the first index, it's 0
-        for split_c in np.split(chunk, start_indices[1:]):
-            yield split_c
+        if len(start_indices) > 1:
+            # If we have only one record and no splits, this would be an error
+            for split_c in np.split(chunk, start_indices[1:]):
+                yield split_c
+        else:
+            # The chunk is uniform
+            yield chunk
 
 
 def joined_chunks(iterator_in, columns, row_limit=np.inf):
@@ -48,6 +53,18 @@ def joined_chunks(iterator_in, columns, row_limit=np.inf):
 
     # Get our last chunk
     yield np.hstack(to_join)
+
+
+def downsample(iterator_in, p=0.001):
+    '''Return a random set of records for each chunk, with probability `p` for
+    each record'''
+
+    for chunk in iterator_in:
+        recs = np.random.binomial(1, p, len(chunk)).astype(bool)
+        # ensure we always have some content from each chunk
+        # Could also skip returning if a recs is all false...
+        recs[np.random.randint(len(recs))] = True
+        yield chunk[recs]
 
 
 class ProcessChunk:
@@ -99,16 +116,7 @@ class Sanitizer(ProcessChunk):
             # thing unwriteable. Should double-check.
             chunk.flags.writeable = True
             self.fake_symbol_replace(chunk)
-            # More logic to fudge times
-            # if chunk[0][symbol_column] == last_symbol:
-            #     # This won't execute until we've been through the loop once
-            #     self.fudge_up(chunk, last_time)  # noqa
-            # else:
             self.fudge_up(chunk)
-
-            # last_symbol = chunk[0][symbol_column]
-            # This is used above in the loop
-            # last_time = chunk[-1][self.time_cols]  # noqa
 
             yield chunk
 
@@ -125,14 +133,6 @@ class Sanitizer(ProcessChunk):
 
         Make sure the values stay monotonic, and don't get bigger than
         max_value.'''
-
-        # This was some logic to deal with contiguous chunks. Then I decided
-        # that just fudging prices was easier.
-        # if last_time:
-        #     same_hm = np.logical_and(chunk[self.time_cols[0]] <= last_time[0],
-        #                              chunk[self.time_cols[1]] <= last_time[1])
-        #     earlier = np.logical_and(same_hm,
-        #                              chunk[self.time_cols[2]] < last_time[2])
 
         for col in self.fudge_columns:
             # Note that we don't worry about decimal place here - just treating
