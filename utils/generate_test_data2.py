@@ -1,6 +1,6 @@
 '''Mix up symbols and prices a little bit'''
 
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from os import path
 
 import taq
@@ -35,6 +35,6 @@ with open(args.fname_out, 'wb') as ofile:
 
 basename = path.basename(args.fname_out)
 with ZipFile(args.fname_out + '.zip', 'w') as zf:
-    zf.write(args.fname_out, basename)
+    zf.write(args.fname_out, basename, ZIP_DEFLATED)
 
 # Currently, the unzipped version of args.fname_out is left laying around!
