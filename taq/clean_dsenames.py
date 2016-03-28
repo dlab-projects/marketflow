@@ -1,7 +1,25 @@
 import pandas as pd
 import numpy as np
 
+class Permno_Map(object):
+	"""docstring for Permno_Map"""
+	def __init__(self, dsefile):
+		dsenames = pd.read_csv('crsp/dsenames.csv')
+		self.process(dsenames)
+
+	def dse_subset(self, dsenames, date = 20100101, regular = True, active = True, beneficial = False, when_issued = False):
+		dsenames = dsenames[dsenames['NAMEENDT']>=date]
+		if regular == True:
+			# SECSTAT == "R" indicates that the security is "Regular" (i.e. the security is past the "When-Issued" stage
+			# and the company is not going through bankruptcy proceedings)	
+			dsenames = dsenames[dsenames['SECSTAT']=="R"]
+		if active == True:	
+			# TRDSTAT == "A" indicates that the security is actively trading
+			dsenames = dsenames[dsenames['TRDSTAT']=="A"]
+
 dsenames = pd.read_csv('crsp/dsenames.csv')
+
+# Only include securities that were trading at some point from January 2010 onwards
 
 dsenames = dsenames[dsenames['NAMEENDT']>=20100101]
 
