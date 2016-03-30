@@ -1,13 +1,16 @@
-#!/usr/bin/env python3
+'''Basic, efficient interface to TAQ data using numpy
+
+A central design goal is minimizing external dependencies
+'''
 
 from os import path
 from zipfile import ZipFile
 
 from pytz import timezone
 import numpy as np
-from numpy.lib import recfunctions
+# XXX move this to a separate function to eliminate a hard dependency
 import tables as tb
-import time, datetime
+import datetime  # , time
 
 
 class BytesSpec(object):
@@ -16,11 +19,13 @@ class BytesSpec(object):
     # List of (Name, # of bytes_spectes)
     # We will use this to contstuct "bytes" (which is what 'S' stands for - it
     # doesn't stand for "string")
-    initial_dtype_info = [# Time is given in HHMMSSmmm, should be in Eastern Time (ET)
+    initial_dtype_info = [
+                          # Time is given in HHMMSSmmm, should be in Eastern
+                          # Time (ET)
                           ('hour', 2),
                           ('minute', 2),
-                          ('msec', 5), # This includes seconds - so up to
-                                       # 59,999 msecs
+                          ('msec', 5),  # This includes seconds - so up to
+                                        # 59,999 msecs
                           ('Exchange', 1),
                           ('Symbol_root', 6),
                           ('Symbol_suffix', 10),
@@ -141,7 +146,7 @@ class BytesSpec(object):
         for pos, name in enumerate(dtype.names):
             dt, _ = dtype.fields[name]
             if issubclass(dt.type, np.datetime64):
-                tdtype = tb.defscription({name: tb.Time64Col(pos = pos)}),
+                tdtype = tb.defscription({name: tb.Time64Col(pos=pos)}),
             else:
                 tdtype = tb.descr_from_dtype(np.dtype([(name, dt)]))
             el = tdtype[0]  # removed dependency on toolz -DJC
@@ -187,12 +192,13 @@ class TAQ2Chunks:
     year = None
     month = None
     day = None
+    # This isn't available in our chunks, so we'll expose it here
+    first_line = None
 
     # This is a totally random guess. It should probably be tuned if we care...
     DEFAULT_CHUNKSIZE = 1000000
 
-    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True,
-                 chunk_type='lines', fast=True):
+    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True,  fast=True):
         '''Configure conversion process and (for now) set up the iterator
         taq_fname : str
             Name of input file
@@ -209,19 +215,12 @@ class TAQ2Chunks:
         '''
         self.taq_fname = taq_fname
         self.chunksize = chunksize
-        self.chunk_buffer = None
-        self.symbol_list = []
         self.do_process_chunk = do_process_chunk
         self.fast = fast
 
-        if chunk_type == 'lines':
-            self.iter_ = self._convert_taq()
-            next(self.iter_) #read first line and setup attributes
-        elif chunk_type == 'symbols':
-            self.iter_ = self._symbol_taq() #make symbol_taq top level iter
-            self.subiter_ = self._convert_taq() #symbol_taq iterataes over convert_taq
-            next(self.subiter_) #read first line and setup attributes
-
+        self.iterator = self._convert_taq()
+        # Get first line read / set up remaining attributes
+        next(self.iterator)
 
     def __len__(self):
         return self.numlines
@@ -229,16 +228,16 @@ class TAQ2Chunks:
     def __iter__(self):
         # Returning the internal iterator avoids a function call, not a big
         # deal, but may as well avoid extra computation
-        return self.iter_
+        return self.iterator
 
     def __next__(self):
-        return next(self.iter_)
+        return next(self.iterator)
 
     def _convert_taq(self):
         '''Return a generator that yields chunks, based on config in object
 
         This is meant to be called from within `__init__()`, and stored in
-        `self.iter_`
+        `self.iterator`
         '''
         # The below doesn't work for pandas (and neither does `unzip` from the
         # command line). Probably want to use something like `7z x -so
@@ -250,8 +249,9 @@ class TAQ2Chunks:
             self.infile_name, = zfile.namelist()
 
             with zfile.open(self.infile_name) as infile:
-                first = infile.readline()
-                bytes_per_line = len(first)
+                # this is part of the public interface
+                self.first_line = infile.readline()
+                bytes_per_line = len(self.first_line)
 
                 if self.do_process_chunk:
                     self.bytes_spec = \
@@ -266,10 +266,10 @@ class TAQ2Chunks:
                 # You need to use bytes to split bytes
                 # some files (probably older files do not have a record count)
                 try:
-                    dateish, numlines = first.split(b":")
+                    dateish, numlines = self.first_line.split(b":")
                     self.numlines = int(numlines)
                 except ValueError:
-                    dateish = first
+                    dateish = self.first_line
 
                 # Get dates to combine with times later
                 # This is a little over-trusting of the spec...
@@ -298,70 +298,25 @@ class TAQ2Chunks:
                 else:
                     yield from self.chunks(self.numlines, infile)
 
-    def _partition_symbols(self):
-        """Parse line-based chunk into symbol-based chunk"""
-
-        unique_symbols, start_indices = np.unique(self.chunk_buffer[['Symbol_root', 'Symbol_suffix']], return_index=True)
-        for name, ix in zip(unique_symbols, start_indices):
-            self.symbol_list.append((name, ix))
-
-    def _symbol_taq(self):
-        """Return a generator that yield chunks by stock symbol"""
-
-        if not self.chunk_buffer:
-            self.chunk_buffer = next(self.subiter_)
-            self._partition_symbols()
-        while len(self.chunk_buffer) > 0:
-            while len(self.symbol_list) == 1:
-                try:
-                    np.append(self.chunk_buffer, next(self.subiter_))
-                    self._partition_symbols()
-                except StopIteration:
-                    break
-            current_symbol = self.symbol_list.pop(0)
-            try:
-                next_symbol = self.symbol_list[0]
-            except IndexError:
-                next_symbol = ('EOF', None)
-            current_chunk = self.chunk_buffer[
-                current_symbol[1]:next_symbol[1]
-                ]
-            self.chunk_buffer = np.delete(
-                self.chunk_buffer, [current_symbol[1],next_symbol[1]]
-                )
-            yield current_chunk
-
-
     def process_chunk(self, all_bytes):
         '''Convert the structured ndarray `all_bytes` to the target_dtype
 
         If you did not specify do_process_chunk, you might run this yourself on
         chunks that you get from iteration.'''
-        # Note, this is slower than the code directly below
-        # records = recfunctions.append_fields(easy_converted, 'Time',
-        #                                      time64ish, usemask=False)
         target_dtype = np.dtype(self.bytes_spec.target_dtype)
         combined = np.empty(all_bytes.shape, dtype=target_dtype)
 
-        if self.fast:
-            for name in self.bytes_spec.passthrough_strings:
-                combined[name] = all_bytes[name]
-            for name, dtype in self.bytes_spec.convert_dtype:
-                curr = all_bytes[name]
-                # .fromstring() converts bytes to integers, but needs
-                # C-contiguous data, hence a .copy()
-                # Also, 48 ==  ord(b'0'), subtracting yeilds integer
-                # equivalents
-                a = np.fromstring(curr.copy(), np.uint8) - 48
-                combined[name] = a.reshape((-1, curr.itemsize)).dot(
-                    (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
-
-        else:
-            # This performs type coercion
-            for name in target_dtype.names:
-                if name == 'Time':
-                    continue
-                combined[name] = all_bytes[name]
+        for name in self.bytes_spec.passthrough_strings:
+            combined[name] = all_bytes[name]
+        for name, dtype in self.bytes_spec.convert_dtype:
+            curr = all_bytes[name]
+            # .fromstring() converts bytes to integers, but needs
+            # C-contiguous data, hence a .copy()
+            # Also, 48 ==  ord(b'0'), subtracting yeilds integer
+            # equivalents
+            a = np.fromstring(curr.copy(), np.uint8) - 48
+            combined[name] = a.reshape((-1, curr.itemsize)).dot(
+                (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
 
         # These don't have the decimal point in the TAQ file
         # XXX could be folded into fast logic above (shift the arange),
@@ -370,12 +325,15 @@ class TAQ2Chunks:
             combined[dollar_col] /= 10000
 
         # Currently, there doesn't seem to be any value in converting to
-        # numpy.datetime64, as PyTables wants float64's corresponding to the POSIX
-        # Standard (relative to 1970-01-01, UTC) that it then converts to a
-        # time64 struct on it's own
+        # numpy.datetime64, as PyTables wants float64's corresponding to the
+        # POSIX Standard (relative to 1970-01-01, UTC) that it then converts to
+        # a time64 struct on it's own
 
-        # TODO This is the right math, but we still need to ensure we're
-        # coercing to sufficient data types (we need to make some tests!).
+        # TODO I THINK this is the right math, but we still need to ensure
+        # we're coercing to sufficient data types (we need to make some
+        # tests!). Raymond Yang has some code that shows some values are wrong.
+        # Dav has replicated in Pandas (see ipynb notebook in the dlab-finance
+        # repo).
 
         # The math is also probably a bit inefficient, but it seems to work,
         # and based on Dav's testing, this is taking negligible time compared
@@ -398,15 +356,17 @@ class TAQ2Chunks:
             self.chunksize = self.DEFAULT_CHUNKSIZE
 
         while(True):
-            raw_bytes = infile.read(self.bytes_spec.bytes_per_line * self.chunksize)
+            raw_bytes = infile.read(self.bytes_spec.bytes_per_line *
+                                    self.chunksize)
             if not raw_bytes:
                 break
 
             # This is a fix that @rdhyee made, but due to non-DRY appraoch, he
             # did not propagate his fix!
-            all_bytes = np.ndarray(len(raw_bytes) // self.bytes_spec.bytes_per_line,
-                                        buffer=raw_bytes,
-                                        dtype=self.bytes_spec.initial_dtype)
+            all_bytes = np.ndarray(len(raw_bytes) //
+                                    self.bytes_spec.bytes_per_line,
+                                   buffer=raw_bytes,
+                                   dtype=self.bytes_spec.initial_dtype)
 
             yield all_bytes
 
@@ -432,7 +392,7 @@ class TAQ2Chunks:
                                mode='w',
                                filters=tb.Filters(complevel=8,
                                                   complib='blosc:lz4hc',
-                                                  fletcher32=True) )
+                                                  fletcher32=True))
 
         return self.h5.create_table('/', 'daily_quotes',
                                     description=self.bytes_spec.pytables_desc,
@@ -453,62 +413,37 @@ class TAQ2Chunks:
             self.chunksize = h5_table.chunkshape[0]
 
         try:
-            for chunk in self.iter_:
+            for chunk in self.iterator:
                 h5_table.append(chunk)
-                # XXX for testing, we are only converting one chunk
-                #break
         finally:
             self.finalize_hdf5()
 
 
 def main():
+    '''Basic conversion from zip file to HDF5, use like this:
+
+    $ ./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
+    '''
     from sys import argv
     import os
-    import tables as tb
 
-    # TODO: This class name was taken from the tutorial, which is about
-    # particle physics. Rename!
-    class Particle(tb.IsDescription):
-        name = tb.StringCol(30)   # 16-character String
-        time = tb.StringCol(8)
+    from .utility import timeit
 
-    fnames = argv[1:] #./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
+    fnames = argv[1:]
     if not fnames:
         # Grab our agreed-upon "standard" BBO file
-        fnames = ['../../local_data/EQY_US_ALL_BBO_20150202.zip']
-        # fname = '../local_data/EQY_US_ALL_BBO_20140206.zip'
+        fnames = ['test-data/small_test_data_public.zip']
 
-
-    def timing(t0, t1):
-        #convert the time note to string with regular formate
-        a = datetime.datetime.fromtimestamp(t0).strftime('%Y-%m-%d %H:%M:%S')
-        b = datetime.datetime.fromtimestamp(t1).strftime('%Y-%m-%d %H:%M:%S')
-
-        #time string calucation
-        start = datetime.datetime.strptime(a, '%Y-%m-%d %H:%M:%S')
-        end = datetime.datetime.strptime(b, '%Y-%m-%d %H:%M:%S')
-        diff = str(end - start)
-
-        return diff
-
-    log = tb.open_file("log_201503.h5", mode = "w")
-    table = log.create_table('/', 'files', Particle)
-    row = table.row
+    @timeit
+    def conv_to_hdf5(name):
+        test = TAQ2Chunks(name, do_process_chunk=True)
+        test.to_hdf5()
 
     for name in fnames:
         print('processing', name)
-        h5_path = "../../local_data/%s.h5" %(name[17:40])
+        h5_path = name.rstrip('.zip') + '.h5'
 
-        if not os.path.exists(h5_path):
-            t0 = time.time()
-            test = TAQ2Chunks(name, do_process_chunk=True)
-            test.to_hdf5()
-            t1 = time.time()
-
-            row['name'] = name[32:40]
-            row['time'] = timing(t0, t1)
-            row.append()
-
-
-if __name__ == '__main__':
-    main()
+        if os.path.exists(h5_path):
+            print('skipping, {} exists'.format(h5_path))
+        else:
+            conv_to_hdf5(name)
