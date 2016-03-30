@@ -339,10 +339,10 @@ class TAQ2Chunks:
         # and based on Dav's testing, this is taking negligible time compared
         # to the above conversions.
         time64ish = (self.midnight_ts +
-                     combined['hour'] * 3600 +
-                     combined['minute'] * 60 +
+                     combined['hour'] * 3600. +
+                     combined['minute'] * 60. +
                      # I'm particularly amazed that this seems to work (in py3)
-                     combined['msec'] / 1000)
+                     combined['msec'] / 1000.)
 
         combined['Time'] = time64ish
 

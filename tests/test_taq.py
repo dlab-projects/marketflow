@@ -87,6 +87,8 @@ def test_row_values(fname, numlines=5):
 
         unix_time = date_object.timestamp + msec/1000
 
+        assert unix_time == chunk_proc[i][0]
+
         # in bytes
         symbol_root, symbol_suffix = entry['Symbol_root'], entry['Symbol_suffix']
         bid_price = int(entry['Bid_Price'][0:7]) + int(entry['Bid_Price'][7:11])/10000
@@ -94,7 +96,11 @@ def test_row_values(fname, numlines=5):
         ask_price = int(entry['Ask_Price'][0:7]) + int(entry['Ask_Price'][7:11])/10000
         ask_size = int(entry['Ask_Size'])
 
-        print (bid_price, bid_size, ask_price, ask_size)
+        # Add assert statements
+        assert bid_price == chunk_proc[i][7]
+        assert bid_size == chunk_proc[i][8]
+        assert ask_price == chunk_proc[i][9]
+        assert ask_size == chunk_proc[i][10]
 
 
 @mark.parametrize('fname', DATA_FILES)
