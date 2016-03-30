@@ -64,7 +64,7 @@ def test_data_available(fname):
 @mark.parametrize('fname', DATA_FILES)
 def test_row_values(fname, numlines=5):
     sample = taq.TAQ2Chunks(sample_data_dir+fname)
-    chunk = next(sample.iter_)
+    chunk = next(sample)
     assert len(chunk) == sample.chunksize
 
     # Use raw_taq to read in raw bytes
@@ -95,87 +95,6 @@ def test_row_values(fname, numlines=5):
         ask_size = int(entry['Ask_Size'])
 
         print (bid_price, bid_size, ask_price, ask_size)
-
-
-    # with ZipFile(sample_data_dir+fname) as zfile:
-    #     for file in zfile.namelist():
-    #         with zfile.open(file) as taqfile:
-
-    #             # Call readline() once to read in the first row which has #lines
-    #             record_count = taqfile.readline()
-    #             line_length = len(record_count)
-
-    #             # Read in raw bytes of lines 2-6 of file
-    #             raw_bytes = taqfile.read(line_length * numlines)
-    #             entries = [raw_bytes[i:i+line_length] for i in range(0,len(raw_bytes),line_length)]
-                
-    #             # Do a byte-field mapping using numpy
-    #             dt = [  ('Hour',                       'S2'),
-    #                     ('Minute',                     'S2'),
-    #                     ('Second',                     'S2'),
-    #                     ('Milliseconds',               'S3'),
-    #                     ('Exchange',                   'S1'),
-    #                     ('Symbol_Root',                'S6'),
-    #                     ('Symbol_Suffix',             'S10'),
-    #                     ('Bid_Price',                 'S11'),
-    #                     ('Bid_Size',                   'S7'),
-    #                     ('Ask_Price',                 'S11'),
-    #                     ('Ask_Size',                   'S7'),
-    #                     ('Quote_Condition',            'S1'),
-    #                     ('Market_Maker',               'S4'),
-    #                     ('Bid_Exchange',               'S1'),
-    #                     ('Ask_Exchange',               'S1'),
-    #                     ('Sequence_Number',           'S16'),
-    #                     ('National_BBO_Ind',           'S1'),
-    #                     ('NASDAQ_BBO_IND',             'S1'),
-    #                     ('Quote_Cancel_Correction',    'S1'),
-    #                     ('Source_of_Quote',            'S1'),
-    #                     ('Retail_Interest_Ind',        'S1'),
-    #                     ('Short_Sale_Restriction_Ind', 'S1'),
-    #                     ('LULD_BBO_Ind_CQS',           'S1'),
-    #                     ('LULD_BBO_Ind_UTP',           'S1'),
-    #                     ('FINRA_ADF_MPID_Ind',         'S1'),
-    #                     ('SIP_Generated_Message_ID',   'S1'),
-    #                     ('National_BBO_LULD_Ind',      'S1'),
-    #                     ('Line_Change',                'S2')  ]
-                
-    #             structured_byte_mapping = np.array(entries, dtype=dt)
-
-    #             month, day, year = int(record_count[2:4]), int(record_count[4:6]), int(record_count[6:10])
-
-    #             for i in range(len(structured_byte_mapping)):
-    #                 entry = structured_byte_mapping[i]
-    #                 date_object = arrow.Arrow(year, month, day, 
-    #                     hour=int(entry['Hour']), 
-    #                     minute=int(entry['Minute']), 
-    #                     second=int(entry['Second']),
-    #                     tzinfo=gettz('America/New York'))
-
-    #                 unix_time = date_object.timestamp + (int(entry['Milliseconds'])/1000)
-
-    #                 # To confirm unix time results using online epoch converters, New York
-    #                 # is GMT-5, so take whatever HHMMSS value and add 5 to HH
-
-    #                 # Seems like vectorized arithmetic operations on numpy arrays rounds the thousandths place
-    #                 # up to nearest hundredths place -- rounding error
-
-    #                 # assert chunk[i][0] == unix_time
-
-    #                 # Should test other row values
-    #                 symbol_root, symbol_suffix = entry['Symbol_Root'], entry['Symbol_Suffix']
-
-    #                 bid_price = int(entry['Bid_Price'][0:7]) + int(entry['Bid_Price'][7:11])/10000
-    #                 bid_size = int(entry['Bid_Size'])
-    #                 ask_price = int(entry['Ask_Price'][0:7]) + int(entry['Ask_Price'][7:11])/10000
-    #                 ask_size = int(entry['Ask_Size'])
-
-    #                 # assert bid_price == chunk[i][7]
-    #                 # assert bid_size == chunk[i][8]
-    #                 # assert ask_price == chunk[i][9]
-    #                 # assert ask_size == chunk[i][10]
-
-
-
 
 
 @mark.parametrize('fname', DATA_FILES)
