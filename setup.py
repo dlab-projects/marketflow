@@ -13,7 +13,7 @@ setup(
     install_requires=['tables', 'pytz'],
 
     extras_require={
-        'test': ['pytest'],
+        'test': ['pytest', 'arrow'],
     },
 
     entry_points={
