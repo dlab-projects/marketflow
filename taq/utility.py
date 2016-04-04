@@ -14,12 +14,12 @@ def timeit(method):
         https://www.andreas-jung.com/contents/a-python-decorator-for-measuring-the-execution-time-of-methods
     '''
     def timed(*args, **kw):
-        ts = time()
+        tstart = time()
         result = method(*args, **kw)
-        te = time()
+        tend = time()
 
-        print('{!r} ({!r}, {!r}): {:.3} sec'.format(
-            method.__name__, args, kw, te-ts))
+        print('{} {!r}, {!r}: {:.3} sec'.format(
+            method.__name__, args, kw, tend-tstart))
         return result
 
     return timed

@@ -3,7 +3,7 @@ import py
 import taq
 import arrow
 import pytest
-import numpy as np
+# import numpy as np
 import configparser
 from pytest import mark
 from dateutil.tz import gettz
@@ -13,7 +13,21 @@ test_path = os.path.dirname(__file__)
 sample_data_dir = os.path.join(test_path, '../test-data/')
 config = configparser.ConfigParser()
 config.read(os.path.join(test_path, 'test_taq.ini'))
+# from zipfile import ZipFile
+from dateutil.tz import gettz
+
+# For comparison purposes
+# from pytz import timezone
+# import pytz
+
+# XXX We should turn this into a set-up fixture
+test_path = path.dirname(__file__)
+sample_data_dir = path.join(test_path, '../test-data/')
+config = configparser.ConfigParser()
+config.read(path.join(test_path, 'test_taq.ini'))
+# We simply throw away key names
 DATA_FILES = [y for x, y in config.items('taq-data')]
+chunksize = int(config['parameters']['chunksize'])
 
 # We can set up some processing this way
 # Docs here: http://pytest.org/latest/fixture.html
@@ -38,7 +52,8 @@ def test_h5_files(fname, tmpdir):
     #     # XXX use temp files / directories to store data
     #     # http://pytest.org/latest/tmpdir.html
 
-
+        # empty hdf5 table?
+        # h5_table = sample.setup_hdf5('sample')
 
     #     # empty hdf5 table?
     #     h5_table = sample.setup_hdf5('sample')
@@ -52,18 +67,42 @@ def test_h5_files(fname, tmpdir):
 @mark.parametrize('fname', DATA_FILES)
 def test_data_available(fname):
     '''Test that our sample data is present
-    Currently, data should be exactly the data also available on Box in the
+
+    Ideally, data should be exactly the data also available on Box in the
     taq-data folder maintained by D-Lab. These data are copyrighted, so if
     you're not a member of the D-Lab, you'll likely need to arrange your own
     access!
+
+    By default, we have also created a small fake TAQ data file, available
+    here:
+
+        http://j.mp/TAQ-small-test-data-public
     '''
     data_dir_contents = os.listdir(sample_data_dir)
     assert fname in data_dir_contents
 
 
+def test_ini_row_value():
+    '''Test values read explicitly from test_taq.ini'''
+    sample = taq.TAQ2Chunks(sample_data_dir +
+                            config['taq-data']['std-test-file'],
+                            chunksize=chunksize)
+    chunk = next(sample)
+    row0 = chunk[0]
+    test_values = config['std-test-row-values']
+
+    assert float(test_values['time']) == row0['Time']
+    assert int(test_values['hour']) == row0['hour']
+    assert int(test_values['minute']) == row0['minute']
+    assert int(test_values['msec']) == row0['msec']
+    assert test_values['exchange'].encode('ascii') == row0['Exchange']
+    assert test_values['symbol_root'].encode('ascii') == row0['Symbol_root']
+
+
 @mark.parametrize('fname', DATA_FILES)
 def test_row_values(fname, numlines=5):
-    sample = taq.TAQ2Chunks(sample_data_dir+fname)
+    sample = taq.TAQ2Chunks(sample_data_dir + fname,
+                            chunksize=chunksize)
     chunk = next(sample)
     # assert len(chunk) == sample.chunksize
 
@@ -79,10 +118,10 @@ def test_row_values(fname, numlines=5):
         entry = chunk[i]
         msec = int(entry['msec'][2:5])
 
-        date_object = arrow.Arrow(year, month, day, 
-            hour=int(entry['hour']), 
-            minute=int(entry['minute']), 
-            second=int(entry['msec'][0:2]), 
+        date_object = arrow.Arrow(year, month, day,
+            hour=int(entry['hour']),
+            minute=int(entry['minute']),
+            second=int(entry['msec'][0:2]),
             tzinfo=gettz('America/New York'))
 
         unix_time = date_object.timestamp + msec/1000
@@ -122,4 +161,3 @@ if __name__ == '__main__':
     # test_row_values('EQY_US_ALL_BBO_20140206.zip')
     # tmpdir = 'test_dir'
     # h5_files(tmpdir)
-

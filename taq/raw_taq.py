@@ -218,6 +218,7 @@ class TAQ2Chunks:
         self.do_process_chunk = do_process_chunk
         self.fast = fast
 
+        # XXX Maybe should be _iterator?
         self.iterator = self._convert_taq()
         # Get first line read / set up remaining attributes
         next(self.iterator)
