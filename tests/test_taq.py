@@ -7,12 +7,6 @@ import pytest
 import configparser
 from pytest import mark
 from dateutil.tz import gettz
-
-
-test_path = os.path.dirname(__file__)
-sample_data_dir = os.path.join(test_path, '../test-data/')
-config = configparser.ConfigParser()
-config.read(os.path.join(test_path, 'test_taq.ini'))
 # from zipfile import ZipFile
 from dateutil.tz import gettz
 
@@ -21,10 +15,10 @@ from dateutil.tz import gettz
 # import pytz
 
 # XXX We should turn this into a set-up fixture
-test_path = path.dirname(__file__)
-sample_data_dir = path.join(test_path, '../test-data/')
+test_path = os.path.dirname(__file__)
+sample_data_dir = os.path.join(test_path, '../test-data/')
 config = configparser.ConfigParser()
-config.read(path.join(test_path, 'test_taq.ini'))
+config.read(os.path.join(test_path, 'test_taq.ini'))
 # We simply throw away key names
 DATA_FILES = [y for x, y in config.items('taq-data')]
 chunksize = int(config['parameters']['chunksize'])
@@ -39,6 +33,8 @@ def test_h5_files(fname, tmpdir):
     # XXX Update to be appropriate conversion to HDF5
     sample = taq.TAQ2Chunks(sample_data_dir+fname)
     
+    
+
     # Use tmpdir
     
 
@@ -101,10 +97,14 @@ def test_ini_row_value():
 
 @mark.parametrize('fname', DATA_FILES)
 def test_row_values(fname, numlines=5):
+
     sample = taq.TAQ2Chunks(sample_data_dir + fname,
                             chunksize=chunksize)
     chunk = next(sample)
-    # assert len(chunk) == sample.chunksize
+
+    # Check len(chunk) == min(sample.chunksize, length of file)
+    print (sample.numlines)
+    assert len(chunk) == sample.chunksize
 
     # Use raw_taq to read in raw bytes
     chunk_unprocessed_gen = taq.TAQ2Chunks(sample_data_dir+fname, chunksize=numlines, do_process_chunk=False)
@@ -126,7 +126,7 @@ def test_row_values(fname, numlines=5):
 
         unix_time = date_object.timestamp + msec/1000
 
-        assert unix_time == chunk_proc[i][0]
+        assert unix_time == chunk_proc[i]['Time']
 
         # in bytes
         symbol_root, symbol_suffix = entry['Symbol_root'], entry['Symbol_suffix']
@@ -144,7 +144,7 @@ def test_row_values(fname, numlines=5):
 @mark.parametrize('fname', DATA_FILES)
 def test_statistics(fname):
     # np.average()
-    print('hi')
+    assert 1
 
 
 @mark.xfail
