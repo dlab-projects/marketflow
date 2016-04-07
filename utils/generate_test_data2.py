@@ -36,8 +36,8 @@ if __name__ == '__main__':
     parser.add_argument('fname_out', default='test_data_public',
                         help="Path to write output"
                              "(both zip archive and contained file")
-    parser.add_argument('size', type=int,
-                        help="Integer number of lines to sanitize and write")
+    parser.add_argument('--size', type=int, default=10000,
+                        help="Integer max of lines to sanitize and write")
     parser.add_argument('--frac', '-f', type=float, default=0.001,
                         help='Floating point probability'
                              'of returning each line')

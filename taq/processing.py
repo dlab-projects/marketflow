@@ -2,6 +2,8 @@
 
 '''
 
+import pdb
+
 from string import ascii_uppercase
 from random import sample
 
@@ -136,25 +138,36 @@ class Sanitizer(ProcessChunk):
 
 
 class SplitChunks(ProcessChunk):
-    def _process_chunks(self, iterator_in, columns, drop_columns=False):
+    def _process_chunks(self, iterator_in, columns, drop_columns=False,
+                        sorted_cols=True):
         '''Split a chunk based on a list of columns
 
         columns : sequence[str]
-            Sequence of column names for np.unique
+            Sequence of column names for np.unique. Can't be a tuple, can be a
+            list. See numpy docs for more.
         drop_columns : bool
             Split out columns that are constant, leaving varying data.  This is
             currently used for conversion to HDF5. **Changes return value to a
-            tuple!**
+            tuple!** Default is False.
+        sorted_cols : bool
+            Normally, our TAQ data is sorted by symbol. But our synthetic data
+            currently isn't. Maybe other data wouldn't be either? Default is
+            True.
 
         Note that if the next chunk exhibits the continuation of a symbol, this
         will NOT combine derived chunks for the same symbol.
         '''
         self.columns = columns
         self.drop_columns = drop_columns
+        self.sorted_cols = sorted_cols
 
         for chunk in iterator_in:
             unique_symbols, start_indices = \
                 np.unique(chunk[columns], return_index=True)
+            if not self.sorted_cols:
+                # Now start_indices is out of sync with unique_symbols
+                start_indices.sort()
+
             # This takes up a trivial amount of memory, due to the use of views
             # And of course we don't want to split on the first index, it's 0
             if len(start_indices) > 1:
@@ -172,10 +185,12 @@ class SplitChunks(ProcessChunk):
             try:
                 return_columns = self.return_columns
             except AttributeError:
-                self.return_columns = [name for name in chunk.dtype.names
-                                       if name not in self.columns]
+                return_columns = self.return_columns = \
+                    [name for name in chunk.dtype.names
+                     if name not in self.columns]
 
             # This assumes we have non-empty chunks, which should be true
+            # It's a bit redundant with np.unique above, but meh...
             return chunk[self.columns][0], chunk[return_columns]
         else:
             return chunk
