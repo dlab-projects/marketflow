@@ -9,8 +9,8 @@ import taq.processing as tp
 
 def main(fname_in, fname_out, size, frac):
     taq_in = taq.TAQ2Chunks(fname_in, do_process_chunk=False)
-    downsampled = tp.downsample(taq_in, frac)
-    sanitized = tp.Sanitizer(tp.split_chunks(downsampled, 'Symbol_root'))
+    downsampled = tp.Downsample(taq_in, frac)
+    sanitized = tp.Sanitizer(tp.SplitChunks(downsampled, 'Symbol_root'))
 
     with open(fname_out, 'wb') as ofile:
         writ_len = 0

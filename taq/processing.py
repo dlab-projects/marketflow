@@ -8,27 +8,9 @@ from random import sample
 import numpy as np
 
 
-def split_chunks(iterator_in, columns):
-    '''Split a chunk based on a list of columns
-
-    Note that if the next chunk exhibits the continuation of a symbol, this
-    will NOT combine derived chunks for the same symbol.'''
-
-    for chunk in iterator_in:
-        unique_symbols, start_indices = \
-            np.unique(chunk[columns], return_index=True)
-        # This takes up a trivial amount of memory, due to the use of views
-        # And of course we don't want to split on the first index, it's 0
-        if len(start_indices) > 1:
-            # If we have only one record and no splits, this would be an error
-            for split_c in np.split(chunk, start_indices[1:]):
-                yield split_c
-        else:
-            # The chunk is uniform
-            yield chunk
-
-
-def joined_chunks(iterator_in, columns, row_limit=np.inf):
+# While our generator functions aren't quite objects, they're used more like
+# objects, and cohere with our actual objects below. Thus, we use CamelCase.
+def JoinedChunks(iterator_in, columns, row_limit=np.inf):
     '''If a chunk matches the columns from a previous chunk, concatenate!
 
     The logic only inspects the first record. `row_limit` is provided to help
@@ -55,7 +37,7 @@ def joined_chunks(iterator_in, columns, row_limit=np.inf):
     yield np.hstack(to_join)
 
 
-def downsample(iterator_in, p=0.001):
+def Downsample(iterator_in, p=0.001):
     '''Return a random set of records for each chunk, with probability `p` for
     each record'''
 
@@ -80,7 +62,7 @@ class ProcessChunk:
     def __init__(self, iterator_in, *args, **kwargs):
         '''Initialize a derived iterator.
 
-        See the _process_chunks method for arguments.'''
+        See the _process_chunks method for class-specific arguments/docs.'''
 
         self.iterator = self._process_chunks(iterator_in, *args, **kwargs)
 
@@ -151,3 +133,49 @@ class Sanitizer(ProcessChunk):
 
             # this is where the side-effects happen
             chunk[col] = fake_bytes
+
+
+class SplitChunks(ProcessChunk):
+    def _process_chunks(self, iterator_in, columns, drop_columns=False):
+        '''Split a chunk based on a list of columns
+
+        columns : sequence[str]
+            Sequence of column names for np.unique
+        drop_columns : bool
+            Split out columns that are constant, leaving varying data.  This is
+            currently used for conversion to HDF5. **Changes return value to a
+            tuple!**
+
+        Note that if the next chunk exhibits the continuation of a symbol, this
+        will NOT combine derived chunks for the same symbol.
+        '''
+        self.columns = columns
+        self.drop_columns = drop_columns
+
+        for chunk in iterator_in:
+            unique_symbols, start_indices = \
+                np.unique(chunk[columns], return_index=True)
+            # This takes up a trivial amount of memory, due to the use of views
+            # And of course we don't want to split on the first index, it's 0
+            if len(start_indices) > 1:
+                # If we have only one record and no splits, this would be an
+                # error
+                for split_c in np.split(chunk, start_indices[1:]):
+                    yield self.return_format(split_c)
+            else:
+                # The chunk is uniform
+                yield self.return_format(chunk)
+
+    def return_format(self, chunk):
+        '''Return a chunk in the requested format'''
+        if self.drop_columns:
+            try:
+                return_columns = self.return_columns
+            except AttributeError:
+                self.return_columns = [name for name in chunk.dtype.names
+                                       if name not in self.columns]
+
+            # This assumes we have non-empty chunks, which should be true
+            return chunk[self.columns][0], chunk[return_columns]
+        else:
+            return chunk
