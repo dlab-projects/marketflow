@@ -2,8 +2,6 @@
 
 '''
 
-import pdb
-
 from string import ascii_uppercase
 from random import sample
 

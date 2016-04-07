@@ -3,8 +3,6 @@
 We're not sure this is the best way to go, but it's a reasonable place to start
 for a standard binary format'''
 
-import pdb
-
 from os import path
 
 import numpy as np
@@ -89,7 +87,7 @@ class H5Writer:
         # This is an optimization to avoid computing the tb_desc too many times
         if self.tb_desc is None or self.source_dtype != data.dtype:
             self.source_dtype = data.dtype
-            self.tb_desc = self.set_table_type(self.source_dtype)
+            self.set_table_type(self.source_dtype)
 
         try:
             table = self.h5.get_node(path, name)
@@ -102,7 +100,6 @@ class H5Writer:
 def conv_to_hdf5(taq_name, h5_name):
     '''Read raw bytes from TAQ, write to HDF5'''
     taq_in = TAQ2Chunks(taq_name, do_process_chunk=True)
-    target_dtype = taq_in.bytes_spec.target_dtype
 
     # XXX Should I use a context manager here?
     h5writer = H5Writer(h5_name)
@@ -125,6 +122,8 @@ def conv_to_hdf5(taq_name, h5_name):
     # pytables handles this anyway...)
     finally:
         h5writer.finalize_hdf5()
+
+    # I care less about closing the taq_in file...
 
 
 def taq2h5():
