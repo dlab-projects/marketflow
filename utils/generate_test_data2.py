@@ -14,33 +14,22 @@ def main(fname_in, fname_out, size, frac):
     downsampled = tp.downsample(taq_in, frac)
     sanitized = tp.Sanitizer(tp.split_chunks(downsampled, 'Symbol_root'))
 
-    to_write = []
     writ_len = 0
-
-    for chunk in sanitized:
-        if len(chunk) + writ_len > size:
-            break
-        to_write.append(chunk)
-        writ_len += len(chunk)
-
-    line_len = len(taq_in.first_line)
-    datestr, numlines = taq_in.first_line.split(b":")
-
-
-    writ_str = str(writ_len)
-    first_line = datestr + b':' + str(' '*4).encode() + str(writ_len).encode()
-    first_line += str(' '*(line_len-len(first_line)-2)).encode() + b'\r\n'
-
     with open(fname_out, 'wb') as ofile:
-        # write first line
-        ofile.write(first_line)
-        # write chunks from to_write
-        for chunk in to_write:
-            ofile.write(chunk)
-            
-    # new_line = 
+        ofile.write(taq_in.first_line)
 
-    # tofile.write()
+        for chunk in sanitized:
+            if len(chunk) + writ_len > size:
+                break
+            ofile.write(chunk)
+            writ_len += len(chunk)
+
+        line_len = len(taq_in.first_line)
+        datestr, numlines = taq_in.first_line.split(b':')
+        first_line = datestr + b':' + str(' '*4).encode() + str(writ_len).encode()
+        first_line += str(' '*(line_len-len(first_line)-2)).encode() + b'\r\n'
+        ofile.seek(0)
+        ofile.write(first_line)
 
     basename = path.basename(fname_out)
     with ZipFile(fname_out + '.zip', 'w') as zf:
