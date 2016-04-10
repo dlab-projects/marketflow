@@ -3,14 +3,11 @@
 A central design goal is minimizing external dependencies
 '''
 
-from os import path
 from zipfile import ZipFile
 
 from pytz import timezone
 import numpy as np
-# XXX move this to a separate function to eliminate a hard dependency
-import tables as tb
-import datetime  # , time
+import datetime
 
 
 class BytesSpec(object):
@@ -55,9 +52,11 @@ class BytesSpec(object):
 
     # Justin and Pandas (I think) use time64, as does PyTables.
     # We could use msec from beginning of day for now in an uint16
-    # (maybe compare performance to datetime64? Dates should compress very well...)
+    # (maybe compare performance to datetime64? Dates should compress very
+    # well...)
 
-    convert_dtype = [# Time is the first field in HHMMSSmmm format
+    convert_dtype = [
+                     # Time is the first field in HHMMSSmmm format
                      ('hour', np.int8),
                      ('minute', np.int8),
                      # This works well for now, but pytables wants:
@@ -70,7 +69,9 @@ class BytesSpec(object):
                      # This is not currently used, and should always be b'    '
                      # ('Market_Maker', np.int8),
                      ('Sequence_Number', np.int64),
-                     # The _Ind fields are actually categorical - leaving as strings
+                     # The _Ind fields are actually categorical,
+                     # leaving as strings for now. If converting to pandas, use
+                     # categorical type!
                      # ('National_BBO_Ind', np.int8),
                      # ('NASDAQ_BBO_Ind', np.int8),
                     ]
@@ -95,7 +96,12 @@ class BytesSpec(object):
                            'FINRA_ADF_MPID_Indicator',
                            'SIP_generated_Message_Identifier',
                            'National_BBO_LULD_Indicator'
-                          ]
+                           ]
+
+    @property
+    def target_dtype(self):
+        '''We're being careful about operations on this value!'''
+        return self._target_dtype.copy()
 
     def __init__(self, bytes_per_line, computed_fields=None):
         '''Set up dtypes, etc. based on bytes_per_line
@@ -105,8 +111,8 @@ class BytesSpec(object):
         computed_fields : [('Name', dtype), ...]
             A list-based structured dtype, for use for example with
             `[('Time', 'datetime64[ms]')]`.  PyTables will not accept
-            np.datetime64, but we use it to work with the pytables_desc
-            computed attribute.
+            np.datetime64, we need to pass a float64 in, and let pytables
+            convert to time64.
         '''
         self.bytes_per_line = bytes_per_line
         self.check_present_fields()
@@ -123,37 +129,9 @@ class BytesSpec(object):
             # logic to allow for explicitly ignoring fields here.
 
         if computed_fields:
-            self.target_dtype = computed_fields + easy_dtype
+            self._target_dtype = computed_fields + easy_dtype
         else:
-            self.target_dtype = easy_dtype
-
-    @property
-    def pytables_desc(self):
-        """
-        Convert NumPy dtype to PyTable descriptor (lifted from blaze.pytables).
-        Examples
-        --------
-        >>> from tables import Int32Col, StringCol, Time64Col
-        >>> dt = np.dtype([('name', 'S7'), ('amount', 'i4'), ('time', 'M8[us]')])
-        >>> dtype_to_pytables(dt)  # doctest: +SKIP
-        {'amount': Int32Col(shape=(), dflt=0, pos=1),
-         'name': StringCol(itemsize=7, shape=(), dflt='', pos=0),
-         'time': Time64Col(shape=(), dflt=0.0, pos=2)}
-        """
-        dtype = np.dtype(self.target_dtype)
-
-        d = {}
-        for pos, name in enumerate(dtype.names):
-            dt, _ = dtype.fields[name]
-            if issubclass(dt.type, np.datetime64):
-                tdtype = tb.defscription({name: tb.Time64Col(pos=pos)}),
-            else:
-                tdtype = tb.descr_from_dtype(np.dtype([(name, dt)]))
-            el = tdtype[0]  # removed dependency on toolz -DJC
-            getattr(el, name)._v_pos = pos
-            d.update(el._v_colobjects)
-
-        return d
+            self._target_dtype = easy_dtype
 
     def check_present_fields(self):
         """
@@ -198,7 +176,7 @@ class TAQ2Chunks:
     # This is a totally random guess. It should probably be tuned if we care...
     DEFAULT_CHUNKSIZE = 1000000
 
-    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True,  fast=True):
+    def __init__(self, taq_fname, chunksize=None, do_process_chunk=True):
         '''Configure conversion process and (for now) set up the iterator
         taq_fname : str
             Name of input file
@@ -210,18 +188,14 @@ class TAQ2Chunks:
             Do type conversions?
         chunk_type : read in by chunksize "lines" or by unbroken run of
             stock "symbols"
-        fast : bool
-            temporary flag to select algorithm in .process_chunk()
         '''
         self.taq_fname = taq_fname
         self.chunksize = chunksize
         self.do_process_chunk = do_process_chunk
-        self.fast = fast
 
-        # XXX Maybe should be _iterator?
-        self.iterator = self._convert_taq()
+        self._iterator = self._convert_taq()
         # Get first line read / set up remaining attributes
-        next(self.iterator)
+        next(self._iterator)
 
     def __len__(self):
         return self.numlines
@@ -229,16 +203,16 @@ class TAQ2Chunks:
     def __iter__(self):
         # Returning the internal iterator avoids a function call, not a big
         # deal, but may as well avoid extra computation
-        return self.iterator
+        return self._iterator
 
     def __next__(self):
-        return next(self.iterator)
+        return next(self._iterator)
 
     def _convert_taq(self):
         '''Return a generator that yields chunks, based on config in object
 
         This is meant to be called from within `__init__()`, and stored in
-        `self.iterator`
+        `self._iterator`
         '''
         # The below doesn't work for pandas (and neither does `unzip` from the
         # command line). Probably want to use something like `7z x -so
@@ -257,10 +231,10 @@ class TAQ2Chunks:
                 if self.do_process_chunk:
                     self.bytes_spec = \
                         BytesSpec(bytes_per_line,
-                                    computed_fields=[('Time', np.float64)])
-                                    # We want this for making the PyTables
-                                    # description:
-                                    # computed_fields=[('Time', 'datetime64[ms]')])
+                                  computed_fields=[('Time', np.float64)])
+                                  # We want this for making the PyTables
+                                  # description:
+                                  # computed_fields=[('Time', 'datetime64[ms]')])
                 else:
                     self.bytes_spec = BytesSpec(bytes_per_line)
 
@@ -287,7 +261,7 @@ class TAQ2Chunks:
                 # This lets us compute a UTC timestamp
                 self.midnight_ts = timezone('US/Eastern').\
                                     localize(naive_dt).\
-                                        timestamp()
+                                    timestamp()
 
                 # This lets us parse the first line to initialize our
                 # various attributes
@@ -313,32 +287,32 @@ class TAQ2Chunks:
             curr = all_bytes[name]
             # .fromstring() converts bytes to integers, but needs
             # C-contiguous data, hence a .copy()
-            # Also, 48 ==  ord(b'0'), subtracting yeilds integer
-            # equivalents
+            # Also, 48 == ord(b'0'), subtracting from ANSI/ASCII/UTF8 yeilds
+            # integer equivalents.
             a = np.fromstring(curr.copy(), np.uint8) - 48
-            combined[name] = a.reshape((-1, curr.itemsize)).dot(
-                (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1)) )
+            a = a.reshape((-1, curr.itemsize))
 
-        # These don't have the decimal point in the TAQ file
-        # XXX could be folded into fast logic above (shift the arange),
-        # Currently adds ~4 msec per chunk
-        for dollar_col in ['Bid_Price', 'Ask_Price']:
-            combined[dollar_col] /= 10000
+            # We now have an expanded decimal representation in a, we'll assign
+            # appropriate multipliers for each place (e.g., (100, 10, 1))
+            place_values = (10. ** np.arange(curr.itemsize - 1, 0 - 1, -1,
+                                             dtype=dtype))
+
+            # These don't have the decimal point in the TAQ file
+            if name in ['Bid_Price', 'Ask_Price']:
+                place_values /= 10000
+
+            # And now we reduce to a more appropriate representation of a
+            # single float or integer per number using matrix algebra
+            combined[name] = a.dot(place_values)
 
         # Currently, there doesn't seem to be any value in converting to
         # numpy.datetime64, as PyTables wants float64's corresponding to the
         # POSIX Standard (relative to 1970-01-01, UTC) that it then converts to
         # a time64 struct on it's own
 
-        # TODO I THINK this is the right math, but we still need to ensure
-        # we're coercing to sufficient data types (we need to make some
-        # tests!). Raymond Yang has some code that shows some values are wrong.
-        # Dav has replicated in Pandas (see ipynb notebook in the dlab-finance
-        # repo).
-
-        # The math is also probably a bit inefficient, but it seems to work,
-        # and based on Dav's testing, this is taking negligible time compared
-        # to the above conversions.
+        # The math is also probably a bit inefficient, but we have tested that
+        # it works, and based on Dav's testing, this is taking negligible time
+        # compared to the above conversions.
         time64ish = (self.midnight_ts +
                      combined['hour'] * 3600. +
                      combined['minute'] * 60. +
@@ -364,87 +338,8 @@ class TAQ2Chunks:
 
             # This is a fix that @rdhyee made, but due to non-DRY appraoch, he
             # did not propagate his fix!
-            all_bytes = np.ndarray(len(raw_bytes) //
-                                    self.bytes_spec.bytes_per_line,
-                                   buffer=raw_bytes,
+            numrows = len(raw_bytes) // self.bytes_spec.bytes_per_line
+            all_bytes = np.ndarray(numrows, buffer=raw_bytes,
                                    dtype=self.bytes_spec.initial_dtype)
 
             yield all_bytes
-
-    # Everything from here down is HDF5 specific
-    def setup_hdf5(self, h5_fname_root=None):
-        '''Open an HDF5 file with pytables and return a reference to a table
-
-        The table will be constructed based on self.bytes_spec.pytables_desc.
-
-        h5_fname_root : str
-            Used as `title` of HDF5 file, and '.h5' is appended to make the
-            filename. If unspecified, this is derived from self.taq_fname by
-            dorpping off the final extension.
-        '''
-        if h5_fname_root is None:
-            h5_fname_root, _ = path.splitext(self.taq_fname)
-
-        # We're using aggressive compression and checksums, since this will
-        # likely stick around, I'm stopping one level short of max compression.
-        # Don't be greedy :P
-        self.h5 = tb.open_file(h5_fname_root + '.h5',
-                               title=path.basename(h5_fname_root),
-                               mode='w',
-                               filters=tb.Filters(complevel=8,
-                                                  complib='blosc:lz4hc',
-                                                  fletcher32=True))
-
-        return self.h5.create_table('/', 'daily_quotes',
-                                    description=self.bytes_spec.pytables_desc,
-                                    expectedrows=self.numlines)
-
-    def finalize_hdf5(self):
-        self.h5.close()
-
-    def to_hdf5(self):
-        '''Read raw bytes from TAQ, write to HDF5'''
-        # Should I use a context manager here?
-        h5_table = self.setup_hdf5()
-
-        # At some point, we might optimize chunksize. If we create our hdf5
-        # file with PyTables before setting chunksize, we currently assume
-        # PyTables is smart.
-        if self.chunksize is None:
-            self.chunksize = h5_table.chunkshape[0]
-
-        try:
-            for chunk in self.iterator:
-                h5_table.append(chunk)
-        finally:
-            self.finalize_hdf5()
-
-
-def main():
-    '''Basic conversion from zip file to HDF5, use like this:
-
-    $ ./raw_taq.py ../../local_data/EQY_US_ALL_BBO_201502*.zip
-    '''
-    from sys import argv
-    import os
-
-    from .utility import timeit
-
-    fnames = argv[1:]
-    if not fnames:
-        # Grab our agreed-upon "standard" BBO file
-        fnames = ['test-data/small_test_data_public.zip']
-
-    @timeit
-    def conv_to_hdf5(name):
-        test = TAQ2Chunks(name, do_process_chunk=True)
-        test.to_hdf5()
-
-    for name in fnames:
-        print('processing', name)
-        h5_path = name.rstrip('.zip') + '.h5'
-
-        if os.path.exists(h5_path):
-            print('skipping, {} exists'.format(h5_path))
-        else:
-            conv_to_hdf5(name)

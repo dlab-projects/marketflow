@@ -1,4 +1,4 @@
-import os
+from os import path, listdir
 import py
 import taq
 import arrow
@@ -32,11 +32,9 @@ chunksize = int(config['parameters']['chunksize'])
 def test_h5_files(fname, tmpdir):
     # XXX Update to be appropriate conversion to HDF5
     sample = taq.TAQ2Chunks(sample_data_dir+fname)
-    
-    
 
     # Use tmpdir
-    
+
 
     # for i in range(len(DATA_FILES)):
     #     test_file = DATA_FILES[i]
@@ -74,7 +72,7 @@ def test_data_available(fname):
 
         http://j.mp/TAQ-small-test-data-public
     '''
-    data_dir_contents = os.listdir(sample_data_dir)
+    data_dir_contents = listdir(sample_data_dir)
     assert fname in data_dir_contents
 
 
@@ -129,7 +127,8 @@ def test_row_values(fname, numlines=5):
         assert unix_time == chunk_proc[i]['Time']
 
         # in bytes
-        symbol_root, symbol_suffix = entry['Symbol_root'], entry['Symbol_suffix']
+        symbol_root = entry['Symbol_root']
+        symbol_suffix = entry['Symbol_suffix']
         bid_price = int(entry['Bid_Price'][0:7]) + int(entry['Bid_Price'][7:11])/10000
         bid_size = int(entry['Bid_Size'])
         ask_price = int(entry['Ask_Price'][0:7]) + int(entry['Ask_Price'][7:11])/10000

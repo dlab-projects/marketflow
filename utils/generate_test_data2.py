@@ -11,8 +11,8 @@ from shutil import copyfileobj
 
 def main(fname_in, fname_out, size, frac):
     taq_in = taq.TAQ2Chunks(fname_in, do_process_chunk=False)
-    downsampled = tp.downsample(taq_in, frac)
-    sanitized = tp.Sanitizer(tp.split_chunks(downsampled, 'Symbol_root'))
+    downsampled = tp.Downsample(taq_in, frac)
+    sanitized = tp.Sanitizer(tp.SplitChunks(downsampled, 'Symbol_root'))
 
     writ_len = 0
     with open(fname_out, 'wb') as ofile:
@@ -45,8 +45,8 @@ if __name__ == '__main__':
     parser.add_argument('fname_out', default='test_data_public',
                         help="Path to write output"
                              "(both zip archive and contained file")
-    parser.add_argument('size', type=int,
-                        help="Integer number of lines to sanitize and write")
+    parser.add_argument('--size', type=int, default=10000,
+                        help="Integer max of lines to sanitize and write")
     parser.add_argument('--frac', '-f', type=float, default=0.001,
                         help='Floating point probability'
                              'of returning each line')
