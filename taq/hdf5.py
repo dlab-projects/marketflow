@@ -22,7 +22,7 @@ class H5Writer:
     # the first chunk seen by `.append()`.
     tb_desc = None
 
-    def __init__(self, h5_fname, title=None):
+    def __init__(self, h5_fname, title=None, filters=None):
         '''Get ready to write to HDF5
 
         Note that the table description will be constructed based on the dtype
@@ -32,18 +32,24 @@ class H5Writer:
             Used to make default `title` of HDF5 file, and the filename.
         title : str
             Specify the `title` of HDF5 file.
+        filters : tb.Filters
+            How to compress, etc.?
         '''
         if title is None:
             bname = path.basename(h5_fname)
             title, _ = path.splitext(bname)
+
+        if filters is None:
+            filters = tb.Filters(complevel=9,
+                                 complib='blosc:lz4hc',
+                                 fletcher32=True)
+
         # We're using aggressive compression and checksums, since this will
         # likely stick around. That said, checksums are likely redundant with
         # ZFS, and perhaps LZ4 is too. Moreover, blosc makes it harder to use
         # this file with any runtime.
         self.h5 = tb.open_file(h5_fname, title=title, mode='w',
-                               filters=tb.Filters(complevel=9,
-                                                  complib='blosc:lz4hc',
-                                                  fletcher32=True))
+                               filters=filters)
 
     def finalize_hdf5(self):
         self.h5.close()
@@ -82,7 +88,8 @@ class H5Writer:
             E.g., numpy structured array
 
         XXX currently, we are not being very smart about chunkshape. We should
-        revisit.
+        revisit. If we get two chunks for the same location, but with different
+        dtypes, this function will try to do an append that won't work!
         '''
         # This is an optimization to avoid computing the tb_desc too many times
         if self.tb_desc is None or self.source_dtype != data.dtype:
@@ -91,6 +98,8 @@ class H5Writer:
 
         try:
             table = self.h5.get_node(path, name)
+            # This will generate an error if the previous chunk had a different
+            # dtype
             table.append(data)
         except tb.NoSuchNodeError:
             self.h5.create_table(path, name, description=self.tb_desc,
