@@ -1,16 +1,18 @@
+#!/usr/bin/env python3
+
 '''Mix up symbols and prices a little bit'''
 
 from zipfile import ZipFile, ZIP_DEFLATED
 from os import path
 
-import taq
-import taq.processing as tp
+import marketflow
+import marketflow.processing as tp
 
 from shutil import copyfileobj
 
 
 def main(fname_in, fname_out, size, frac):
-    taq_in = taq.TAQ2Chunks(fname_in, do_process_chunk=False)
+    taq_in = marketflow.TAQ2Chunks(fname_in, do_process_chunk=False)
     downsampled = tp.Downsample(taq_in, frac)
     sanitized = tp.Sanitizer(tp.SplitChunks(downsampled, 'Symbol_root'))
 

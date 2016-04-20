@@ -1,24 +1,16 @@
 from os import path, listdir
-import py
-import taq
+import marketflow
 import arrow
 import pytest
-# import numpy as np
 import configparser
 from pytest import mark
 from dateutil.tz import gettz
-# from zipfile import ZipFile
-from dateutil.tz import gettz
-
-# For comparison purposes
-# from pytz import timezone
-# import pytz
 
 # XXX We should turn this into a set-up fixture
-test_path = os.path.dirname(__file__)
-sample_data_dir = os.path.join(test_path, '../test-data/')
+test_path = path.dirname(__file__)
+sample_data_dir = path.join(test_path, '../test-data/')
 config = configparser.ConfigParser()
-config.read(os.path.join(test_path, 'test_taq.ini'))
+config.read(path.join(test_path, 'test_taq.ini'))
 # We simply throw away key names
 DATA_FILES = [y for x, y in config.items('taq-data')]
 chunksize = int(config['parameters']['chunksize'])
@@ -28,26 +20,26 @@ chunksize = int(config['parameters']['chunksize'])
 
 # tmpdir = py.path.local('test-dir/')
 
+
 @mark.parametrize('fname', DATA_FILES)
 def test_h5_files(fname, tmpdir):
     # XXX Update to be appropriate conversion to HDF5
-    sample = taq.TAQ2Chunks(sample_data_dir+fname)
+    sample = marketflow.TAQ2Chunks(sample_data_dir + fname)
 
     # Use tmpdir
-
 
     # for i in range(len(DATA_FILES)):
     #     test_file = DATA_FILES[i]
     #     # Generate name for output file. Assumes filename of form
     #     # "EQY_US_ALL_BBO_YYYYMMDD.zip"
     #     out_name = test_file[15:23]
-    #     sample = taq.TAQ2Chunks(test_file)
+    #     sample = marketflow.TAQ2Chunks(test_file)
 
     #     # XXX use temp files / directories to store data
     #     # http://pytest.org/latest/tmpdir.html
 
-        # empty hdf5 table?
-        # h5_table = sample.setup_hdf5('sample')
+    #     # empty hdf5 table?
+    #     # h5_table = sample.setup_hdf5('sample')
 
     #     # empty hdf5 table?
     #     h5_table = sample.setup_hdf5('sample')
@@ -63,7 +55,7 @@ def test_data_available(fname):
     '''Test that our sample data is present
 
     Ideally, data should be exactly the data also available on Box in the
-    taq-data folder maintained by D-Lab. These data are copyrighted, so if
+    financial-data folder maintained by D-Lab. These data are copyrighted, so if
     you're not a member of the D-Lab, you'll likely need to arrange your own
     access!
 
@@ -78,9 +70,9 @@ def test_data_available(fname):
 
 def test_ini_row_value():
     '''Test values read explicitly from test_taq.ini'''
-    sample = taq.TAQ2Chunks(sample_data_dir +
-                            config['taq-data']['std-test-file'],
-                            chunksize=chunksize)
+    sample = marketflow.TAQ2Chunks(sample_data_dir +
+                                   config['taq-data']['std-test-file'],
+                                   chunksize=chunksize)
     chunk = next(sample)
     row0 = chunk[0]
     test_values = config['std-test-row-values']
@@ -96,8 +88,8 @@ def test_ini_row_value():
 @mark.parametrize('fname', DATA_FILES)
 def test_row_values(fname, numlines=5):
 
-    sample = taq.TAQ2Chunks(sample_data_dir + fname,
-                            chunksize=chunksize)
+    sample = marketflow.TAQ2Chunks(sample_data_dir + fname,
+                                   chunksize=chunksize)
     chunk = next(sample)
 
     # Check len(chunk) == min(sample.chunksize, length of file)
@@ -105,8 +97,8 @@ def test_row_values(fname, numlines=5):
     assert len(chunk) == sample.chunksize
 
     # Use raw_taq to read in raw bytes
-    chunk_unprocessed_gen = taq.TAQ2Chunks(sample_data_dir+fname, chunksize=numlines, do_process_chunk=False)
-    chunk_processed_gen = taq.TAQ2Chunks(sample_data_dir+fname, chunksize=numlines, do_process_chunk=True)
+    chunk_unprocessed_gen = marketflow.TAQ2Chunks(sample_data_dir + fname, chunksize=numlines, do_process_chunk=False)
+    chunk_processed_gen = marketflow.TAQ2Chunks(sample_data_dir + fname, chunksize=numlines, do_process_chunk=True)
     chunk = next(chunk_unprocessed_gen)
     chunk_proc = next(chunk_processed_gen)
 
