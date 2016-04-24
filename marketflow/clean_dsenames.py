@@ -2,7 +2,8 @@ import pandas as pd
 
 
 class Permno_Map(object):
-    """docstring for Permno_Map"""
+    """1. Reads in dsenames file from crsp
+       2. Subsets """
 
     def __init__(self, dsefile='crsp/dsenames.csv'):
         self.dsenames = pd.read_csv(dsefile)
@@ -36,7 +37,8 @@ class Permno_Map(object):
     def dse_subset(self, dsenames, date=20100101, regular=True,
                    active=True, beneficial=False, when_issued=False):
         '''Limit to our "good" set of securities.
-
+           Default settings include securites that are actively trading in normal
+           fashion on some exchange
         date : int
             Not really an int, but the naïve conversion from the datestring.
         regular : bool
