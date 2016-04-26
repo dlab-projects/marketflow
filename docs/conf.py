@@ -53,8 +53,9 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Marketflow'
-copyright = '2016, Dav Clark, Jayanth Devarajan, Max Eddy, Daniel Kim, Jie Li, Dillon Niederhut, Raymond Yang, Raymond Yee'
-author = 'Dav Clark, Jayanth Devarajan, Max Eddy, Daniel Kim, Jie Li, Dillon Niederhut, Raymond Yang, Raymond Yee'
+copyright = '2016, UC Berkeley D-Lab / Regents of the University of California'
+author = 'Dav Clark, Jayanth Devarajan, Max Eddy, Daniel Kim, Jie Li, ' \
+         'Dillon Niederhut, Raymond Yang, Raymond Yee'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -276,7 +277,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'Marketflow', 'Marketflow Documentation',
-     author, 'Marketflow', 'One line description of project.',
+     author, 'Marketflow', 'Streaming financial market data analysis.',
      'Miscellaneous'),
 ]
 
