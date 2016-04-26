@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 '''This script is based on the ITCH v5.0 spec.
 
 It assumes their squirrelly binary message format.'''
@@ -123,8 +121,9 @@ class ITCHv5:
                 writer.writerow([' '.join(rec[3:])])
 
 
-if __name__ == '__main__':
+def main():
     from sys import argv, exit
+
     try:
         itch = ITCHv5(argv[1])
     except IndexError:
@@ -133,3 +132,6 @@ if __name__ == '__main__':
 
     # itch.print_records()
     itch.to_fixed_width()
+
+if __name__ == '__main__':
+    main()
