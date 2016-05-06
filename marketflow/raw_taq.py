@@ -55,6 +55,7 @@ class BytesSpec(object):
     # (maybe compare performance to datetime64? Dates should compress very
     # well...)
 
+    # The following should all *always* be in all TAQ formats
     convert_dtype = [
                      # Time is the first field in HHMMSSmmm format
                      ('hour', np.int8),
@@ -78,6 +79,9 @@ class BytesSpec(object):
 
     convert_dict = dict(convert_dtype)
 
+    # This gets reduced to only present fields in .check_present_fields()
+    # These are enumerated explicitly to allow for fields like Time, that may
+    # be dynamically computed
     passthrough_strings = ['Exchange',
                            'Symbol_root',
                            'Symbol_suffix',
@@ -147,6 +151,7 @@ class BytesSpec(object):
         """
         cum_len = 0
         self.initial_dtype = []
+        present_passthrough = []
 
         # Newlines consume 2 bytes
         target_len = self.bytes_per_line - 2
@@ -155,8 +160,11 @@ class BytesSpec(object):
             # Better to do nested unpacking within the function
             cum_len += field_len
             self.initial_dtype.append( (field_name, 'S{}'.format(field_len)) )
+            if field_name in self.passthrough_strings:
+                present_passthrough.append(field_name)
             if cum_len == target_len:
                 self.initial_dtype.append(('newline', 'S2'))
+                self.passthrough_strings = present_passthrough
                 return
 
         raise BaseException("Can't map fields onto bytes_per_line")
@@ -289,6 +297,7 @@ class TAQ2Chunks:
             # C-contiguous data, hence a .copy()
             # Also, 48 == ord(b'0'), subtracting from ANSI/ASCII/UTF8 yeilds
             # integer equivalents.
+            # If generalizing this code, may want to do bounds checking
             a = np.fromstring(curr.copy(), np.uint8) - 48
             a = a.reshape((-1, curr.itemsize))
 
@@ -310,8 +319,8 @@ class TAQ2Chunks:
         # POSIX Standard (relative to 1970-01-01, UTC) that it then converts to
         # a time64 struct on it's own
 
-        # The math is also probably a bit inefficient, but we have tested that
-        # it works, and based on Dav's testing, this is taking negligible time
+        # This math is probably a bit inefficient, but we have tested that it
+        # works, and based on Dav's testing, this is taking negligible time
         # compared to the above conversions.
         time64ish = (self.midnight_ts +
                      combined['hour'] * 3600. +
