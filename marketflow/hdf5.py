@@ -121,10 +121,17 @@ def conv_to_hdf5(taq_name, h5_name):
         for security, chunk in split:
             symbol, suffix = security
             path = '/' + symbol.strip().decode('ascii')
+
+            # Clean up our suffix, including special cases
             if suffix.isspace():
                 suffix = 'no_suffix'
             else:
                 suffix = suffix.strip().decode('ascii')
+                # This happens in at least EQY_US_ALL_BBO_20140206.zip
+                # It appears to be undocumented
+                if suffix == '.':
+                    suffix = 'dot'
+
             h5writer.append(path, suffix, chunk)
 
     # We want to make sure we close our file nicely (though I'm pretty sure
