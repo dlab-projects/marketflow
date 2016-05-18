@@ -56,13 +56,12 @@ class H5Writer:
 
     def set_table_type(self, target_dtype):
         '''Convert NumPy dtype to PyTable descriptor (adapted from
-        blaze.pytables).  E,g.:
+        blaze.pytables).  E.g.:
         --------
         >>> dt = np.dtype([('name', 'S7'), ('amount', 'i4'), ('time', 'M8[us]')])
-        >>> this.dtype_to_pytables(dt)  # doctest: +SKIP
+        >>> this.set_table_type(dt)  # doctest: +SKIP
         {'amount': Int32Col(shape=(), dflt=0, pos=1),
-         'name': StringCol(itemsize=7, shape=(), dflt='', pos=0),
-         'time': Time64Col(shape=(), dflt=0.0, pos=2)}
+         'name': StringCol(itemsize=7, shape=(), dflt='', pos=0)}
         '''
         # This lets us deal with things like python list based specifications
         target_dtype = np.dtype(target_dtype)
@@ -70,10 +69,12 @@ class H5Writer:
         tb_desc = {}
         for pos, name in enumerate(target_dtype.names):
             dt, _ = target_dtype.fields[name]
-            if issubclass(dt.type, np.datetime64) or name == 'Time':
-                desc = tb.Description({name: tb.Time64Col(pos=pos)})
-            else:
-                desc, _ = tb.descr_from_dtype(np.dtype([(name, dt)]))
+            # We may eventually want to deal with datetime64 columns, but for
+            # now, we don't need to
+            # if issubclass(dt.type, np.datetime64):
+            #     desc = tb.Description({name: tb.Time64Col(pos=pos)})
+            # else:
+            desc, _ = tb.descr_from_dtype(np.dtype([(name, dt)]))
             getattr(desc, name)._v_pos = pos
             tb_desc.update(desc._v_colobjects)
 
@@ -142,31 +143,33 @@ def conv_to_hdf5(taq_name, h5_name):
     # I care less about closing the taq_in file...
 
 
-def taq2h5():
+def taq2h5(overwrite=False):
     '''Basic conversion from zip file to HDF5, use like this:
 
     $ taq2h5 ../../local_data/EQY_US_ALL_BBO_201502*.zip
 
     (It's installed as a package script)
     '''
-    from sys import argv
-    import os
+    from os import path
+    from argparse import ArgumentParser
 
     from .utility import timeit
 
-    fnames = argv[1:]
-    if not fnames:
-        # Grab our agreed-upon "standard" BBO file
-        fnames = ['test-data/small_test_data_public.zip']
+    parser = ArgumentParser()
+    parser.add_argument('--overwrite', action='store_true',
+                        help='Overwrite existing .h5 files')
+    parser.add_argument('fnames', nargs='+', metavar='filename',
+                        help='A TAQ file to convert')
+    parsed = parser.parse_args()
 
     timed_conv = timeit(conv_to_hdf5)
 
-    for name in fnames:
+    for name in parsed.fnames:
         h5_name, _ = path.splitext(name)
         h5_name += '.h5'
         print('converting {} to {}'.format(name, h5_name))
 
-        if os.path.exists(h5_name):
+        if (not parsed.overwrite) and path.exists(h5_name):
             print('skipping, {} exists'.format(h5_name))
         else:
             timed_conv(name, h5_name)

@@ -7,7 +7,7 @@ from zipfile import ZipFile
 
 from pytz import timezone
 import numpy as np
-import datetime
+from datetime import datetime
 
 
 class BytesSpec(object):
@@ -240,9 +240,6 @@ class TAQ2Chunks:
                     self.bytes_spec = \
                         BytesSpec(bytes_per_line,
                                   computed_fields=[('Time', np.float64)])
-                                  # We want this for making the PyTables
-                                  # description:
-                                  # computed_fields=[('Time', 'datetime64[ms]')])
                 else:
                     self.bytes_spec = BytesSpec(bytes_per_line)
 
@@ -262,14 +259,14 @@ class TAQ2Chunks:
 
                 # Nice idea from @rdhyee, we only need to compute the
                 # 0-second for the day once per file.self
-                naive_dt = datetime.datetime(self.year, self.month, self.day)
+                naive_dt = datetime(self.year, self.month, self.day)
 
                 # It turns out you can't pass tzinfo directly, See
                 # http://pythonhosted.org/pytz/
                 # This lets us compute a UTC timestamp
                 self.midnight_ts = timezone('US/Eastern').\
-                                    localize(naive_dt).\
-                                    timestamp()
+                                     localize(naive_dt).\
+                                     timestamp()
 
                 # This lets us parse the first line to initialize our
                 # various attributes
@@ -328,6 +325,8 @@ class TAQ2Chunks:
                      # I'm particularly amazed that this seems to work (in py3)
                      combined['msec'] / 1000.)
 
+        # This is a vanilla float64 column, as time64 is a mess (e.g.
+        # unsupported in HDF5)
         combined['Time'] = time64ish
 
         return combined
