@@ -50,6 +50,24 @@ link).
 Examples
 ========
 
+The below can be used as a part of your analysis, or as informal documentation
+illustrating how the library can be used.
+
+Utility scripts
+---------------
+
+There are a handful of scripts installed along with this package:
+
+taq2h5
+  Runs the taq2h5 function from marketflow.hdf5, converting zipped fixed-width
+  TAQ BBO files to HDF5 with PyTables. Invoke with -h or -help for more info.
+pyitch
+  Runs the main function from marketflow.ITCHbin, exporting the variable-length
+  binary records from binary ITCH datafiles.
+
+Jupyter Python Notebooks
+------------------------
+
 We have some examples of code in the `tests/` directory in the marketflow repo.
 These can be browsed `directly on
 GitHub <https://github.com/dlab-projects/marketflow/tree/master/tests>`_.
