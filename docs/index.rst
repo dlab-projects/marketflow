@@ -51,8 +51,8 @@ Examples
 ========
 
 We have some examples of code in the `tests/` directory in the marketflow repo.
-These can be browsed [directly on
-GitHub](https://github.com/dlab-projects/marketflow/tests).
+These can be browsed `directly on
+GitHub <https://github.com/dlab-projects/marketflow/tree/master/tests>`_.
 
 Indices and tables
 ==================
@@ -60,4 +60,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
