@@ -58,12 +58,21 @@ Utility scripts
 
 There are a handful of scripts installed along with this package:
 
-taq2h5
-  Runs the taq2h5 function from marketflow.hdf5, converting zipped fixed-width
-  TAQ BBO files to HDF5 with PyTables. Invoke with -h or -help for more info.
-pyitch
-  Runs the main function from marketflow.ITCHbin, exporting the variable-length
-  binary records from binary ITCH datafiles.
+``taq2h5``
+  Runs the ``taq2h5`` function from ``marketflow.hdf5``, converting zipped
+  fixed-width TAQ BBO files to HDF5 with PyTables. Invoke with ``-h`` or
+  ``--help`` for more info.
+``pyitch``
+  Runs the ``main`` function from ``marketflow.ITCHbin``, exporting the
+  variable-length binary records from binary ITCH datafiles.
+
+Developer utility scripts
+-------------------------
+
+Scripts that are primarily intended for development are not installed by
+default (avoiding cluttering the users PATH). Currently, there is a script for
+creating a small HDF5 file suitable for quick testing and distribution called
+``generate_test_data.py``.
 
 Jupyter Python Notebooks
 ------------------------
