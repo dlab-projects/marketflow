@@ -47,6 +47,13 @@ To perform various operations on the TAQ data (or other data in columnar
 format), you may use the generators provided in the processing submodule (XXX
 link).
 
+Examples
+========
+
+We have some examples of code in the `tests/` directory in the marketflow repo.
+These can be browsed [directly on
+GitHub](https://github.com/dlab-projects/marketflow/tests).
+
 Indices and tables
 ==================
 
