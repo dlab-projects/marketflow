@@ -8,30 +8,37 @@ from os import path
 import marketflow
 import marketflow.processing as tp
 
-from shutil import copyfileobj
-
 
 def main(fname_in, fname_out, size, frac):
     taq_in = marketflow.TAQ2Chunks(fname_in, do_process_chunk=False)
     downsampled = tp.Downsample(taq_in, frac)
-    sanitized = tp.Sanitizer(tp.SplitChunks(downsampled, 'Symbol_root'))
+    # We should downsample enough that things will fit in memory!
+    recombined = tp.JoinedChunks(tp.SplitChunks(downsampled, 'Symbol_root'),
+                                 'Symbol_root')
+    sanitized = tp.Sanitizer(recombined)
 
-    writ_len = 0
+    # Assemble our chunks - all of this should fit into memory for quick n'
+    # easy testing
+    write_len = 0
+    chunks = []
+    for chunk in sanitized:
+        if len(chunk) + write_len > size:
+            break
+        chunks.append(chunk)
+        write_len += len(chunk)
+
+    # Compute a correct first line for this derived file
+    line_len = len(taq_in.first_line)
+    datestr, numlines = taq_in.first_line.split(b':')
+    first_line = datestr + b':' + b' '*4 + str(write_len).encode()
+    # padding for the rest of the line
+    first_line += b' '*(line_len-len(first_line)-2) + b'\r\n'
+
     with open(fname_out, 'wb') as ofile:
-        ofile.write(taq_in.first_line)
-
-        for chunk in sanitized:
-            if len(chunk) + writ_len > size:
-                break
-            ofile.write(chunk)
-            writ_len += len(chunk)
-
-        line_len = len(taq_in.first_line)
-        datestr, numlines = taq_in.first_line.split(b':')
-        first_line = datestr + b':' + str(' '*4).encode() + str(writ_len).encode()
-        first_line += str(' '*(line_len-len(first_line)-2)).encode() + b'\r\n'
-        ofile.seek(0)
         ofile.write(first_line)
+
+        for chunk in sorted(chunks, key=lambda x: x[0]['Symbol_root']):
+            ofile.write(chunk)
 
     basename = path.basename(fname_out)
     with ZipFile(fname_out + '.zip', 'w') as zf:
