@@ -59,5 +59,8 @@ target/
 # Jupyter
 .ipynb_checkpoints/
 
+# Rope
+.ropeproject/
+
 # For now...
 test-data/
