@@ -4,7 +4,8 @@ It assumes their squirrelly binary message format.'''
 
 import struct
 import gzip
-import csv
+
+from .utility import ManyWriters
 
 
 class ITCHv5:
@@ -65,12 +66,11 @@ class ITCHv5:
                 # .read() just returns '' when it's at EOF
                 if rec_len == '':
                     break
-                # print('rec_len:', rec_len)
+
                 rec = infile.read(rec_len)
+
                 try:
-                    # print('rec_type:', rec[0])
                     fmt = self.rec_types[rec[0]]
-                    # print(fmt)
                     unpacked_rec = list( struct.unpack(fmt, rec) )
 
                     # This unpacks that annoying 6-byte int timestamp that
@@ -82,7 +82,7 @@ class ITCHv5:
                 except KeyError:
                     # Silently ignore unknown record types
                     # (at least until we have them all)
-                    # print('Unkown!')
+                    print('Unkown record type: ' + rec[0])
                     pass
 
     def to_string(self, b):
@@ -104,34 +104,35 @@ class ITCHv5:
             # 6-byte integer
             print(','.join(self.to_string(r) for r in rec))
 
-    def base_fname(self):
-        '''Get the file name, excluding any filepath chars,
-        file extensions, and version numbers
-        '''
-        return self.fname[self.fname.rfind('/')+1 : self.fname.find('-')]
-
-    def to_fixed_width(self):
-        '''Output the records to a fixed-width text for each message type'''
-        base = self.base_fname()
-        for rec in self.records():
-            rec = [self.to_string(r) for r in rec]
-            msg_type = rec[0]
-            with open(base+'_'+rec[0]+'.txt', 'a') as outfile:
-                writer = csv.writer(outfile)
-                writer.writerow([' '.join(rec[3:])])
+    def to_csvs(self):
+        '''Output the records to a CSV file for each message type'''
+        base, _ = self.fname.rsplit('-')
+        with ManyWriters(base) as writers:
+            for rec in self.records():
+                rec = [self.to_string(r) for r in rec]
+                writer = writers.get_writer(rec[0])
+                writer.writerow(rec[1:])
 
 
 def main():
-    from sys import argv, exit
+    from argparse import ArgumentParser
 
-    try:
-        itch = ITCHv5(argv[1])
-    except IndexError:
-        print('Usage: ITCHbin.py <ITCH v5.0 file>')
-        exit(1)
+    parser = ArgumentParser()
+    # parser.add_argument('--overwrite', action='store_true',
+    #                     help='Overwrite existing CSV files')
+    parser.add_argument('fnames', nargs='+', metavar='filename',
+                        help='A v5.0 ITCH file to convert')
+    parsed = parser.parse_args()
 
-    # itch.print_records()
-    itch.to_fixed_width()
+    for name in parsed.fnames:
+        print('converting {} to multiple CSV files'.format(name))
 
-if __name__ == '__main__':
-    main()
+        # This logic is harder given that we convert to multiple CSV files
+
+        # if (not parsed.overwrite) and path.exists(some_outname):
+        #     print('skipping, {} exists'.format(some_outname))
+        # else:
+
+        itch = ITCHv5(name)
+        itch.to_csvs()
+        # or use `.to_records()`

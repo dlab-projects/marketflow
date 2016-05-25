@@ -1,6 +1,50 @@
 '''A set of utilities for financial data analysis'''
 
+import csv
 from time import time
+
+# Keeping track of a bundle of output files for, e.g., ITCH data
+
+
+class ManyWriters:
+    '''Keep track of a set of files and formatters around a given base'''
+
+    writers = {}
+    open_files = []
+
+    def __init__(self, basename):
+        self.basename = basename
+
+    def __enter__(self):
+        return self
+
+    def create_writer(self, rec_type):
+        '''Create a new writer, and store it in the writers dict
+
+        rec_type : str
+            Will be combined with self.basename to determine filename
+        '''
+        outname = self.basename + '_' + rec_type + '.csv'
+        outfile = open(outname, 'w')
+        self.open_files.append(outfile)
+
+        return csv.writer(outfile)
+
+    def get_writer(self, rec_type):
+        '''Get a writer for the specified rec_type, creating if needed
+
+        rec_type : str
+            Will be combined with self.basename to determine filename
+        '''
+        return self.writers.setdefault(rec_type,
+                                       self.create_writer(rec_type) )
+
+    def close_files(self):
+        for f in self.open_files:
+            f.close()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close_files()
 
 
 # Benchmarking
