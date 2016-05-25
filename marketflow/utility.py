@@ -36,7 +36,7 @@ class ManyWriters:
         rec_type : str
             Will be combined with self.basename to determine filename
         '''
-        if rec_type not in self.writer:
+        if rec_type not in self.writers:
             self.writers[rec_type] = self.create_writer(rec_type)
 
         return self.writers[rec_type]

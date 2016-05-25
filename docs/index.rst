@@ -56,15 +56,16 @@ illustrating how the library can be used.
 Utility scripts
 ---------------
 
-There are a handful of scripts installed along with this package:
+There are a handful of scripts installed along with this package. For each
+script, invocation with ``-h`` or ``--help`` should provide more info (if not,
+please file a bug!).
 
 ``taq2h5``
   Runs the ``taq2h5`` function from ``marketflow.hdf5``, converting zipped
-  fixed-width TAQ BBO files to HDF5 with PyTables. Invoke with ``-h`` or
-  ``--help`` for more info.
+  fixed-width TAQ BBO files to HDF5 with PyTables.
 ``pyitch``
   Runs the ``main`` function from ``marketflow.ITCHbin``, exporting the
-  variable-length binary records from binary ITCH datafiles.
+  variable-length binary records from v5.0 binary ITCH datafiles.
 
 Developer utility scripts
 -------------------------
