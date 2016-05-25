@@ -82,7 +82,7 @@ class ITCHv5:
                 except KeyError:
                     # Silently ignore unknown record types
                     # (at least until we have them all)
-                    print('Unkown record type: ' + rec[0])
+                    print('Unkown record type: ' + chr(rec[0]))
                     pass
 
     def to_string(self, b):

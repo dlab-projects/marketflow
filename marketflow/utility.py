@@ -25,7 +25,8 @@ class ManyWriters:
             Will be combined with self.basename to determine filename
         '''
         outname = self.basename + '_' + rec_type + '.csv'
-        outfile = open(outname, 'w')
+        # csv.writer docs specify newline=''
+        outfile = open(outname, 'w', newline='')
         self.open_files.append(outfile)
 
         return csv.writer(outfile)
