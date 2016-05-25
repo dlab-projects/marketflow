@@ -36,11 +36,10 @@ class ManyWriters:
         rec_type : str
             Will be combined with self.basename to determine filename
         '''
-        try:
-            return self.writers[rec_type]
-        except KeyError:
-            return \
-                self.writer[rec_type] = self.create_writer(rec_type)
+        if rec_type not in self.writer:
+            self.writers[rec_type] = self.create_writer(rec_type)
+
+        return self.writers[rec_type]
 
     def close_files(self):
         for f in self.open_files:
